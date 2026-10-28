@@ -31,7 +31,8 @@ const dshHome = process.env.DSH_HOME || join(homedir(), '.dsh')
 const DEST = toIndex >= 0 && argv[toIndex + 1] ? resolve(argv[toIndex + 1]) : join(dshHome, 'plugins', 'dsh-agent-soul')
 
 /** 同步的项：目录整份同步，文件单个同步。 */
-const DIRS = ['lib', 'tests', 'docs']
+// assets 是心情那五张表情图（PNG），lib/api.js 直接从这里读出去给设置页
+const DIRS = ['lib', 'tests', 'docs', 'assets']
 const FILES = ['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE']
 
 /**

@@ -24,6 +24,7 @@
   },
   "files": [
     "lib",
+    "assets",
     "docs",
     "tools",
     "cordis.patch.yml",

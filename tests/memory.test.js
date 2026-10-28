@@ -121,7 +121,14 @@ console.log('衰减过程（一天一档）：')
   eq(sameDay.changed, false, '同一天再跑不重复降档')
 
   // 补跑：关了一周
-  eq(daysSince(new Date(t0 + DAY).toISOString().slice(0, 10), t0 + 8 * DAY), 7, '补跑天数算对了')
+  // ⚠️ 日期必须按【本地】取，不能用 toISOString()（那是 UTC 日期）：
+  // daysSince 是把 'YYYY-MM-DD' 当本地午夜解析的（生产侧的 dateKey 也是本地口径），
+  // 混着用会在 UTC+8 的凌晨 0~8 点差一天 —— 表现为「补跑天数」测试时好时坏。
+  const ymdLocal = (ts) => {
+    const d = new Date(ts)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+  eq(daysSince(ymdLocal(t0 + DAY), t0 + 8 * DAY), 7, '补跑天数算对了')
   eq(daysSince(null, now), 1, '没有记录时按 1 天')
   eq(daysSince('2000-01-01', now), 30, '补跑有 30 天上限')
 }

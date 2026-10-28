@@ -17,6 +17,7 @@ import {
   blankMoodState,
   decayMood,
   judgeMood,
+  moodFace,
   normMoodState,
   normReason,
   normalizeMoodConfig,
@@ -188,6 +189,68 @@ console.log('状态与配置规整：')
   eq(tight.moodSigMood, 1, '显著阈值收紧到 1-30')
   eq(tight.moodSelfName, '小糖', '称呼去空白')
   eq(tight.moodEnabled, false, '显式关掉能关')
+}
+
+console.log('表情图（跟原 dsh-feiyu-mood 同一套）：')
+{
+  eq(moodFace(100), 'great', '≥80 用欢喜那张')
+  eq(moodFace(80), 'great', '80 刚好算欢喜')
+  eq(moodFace(62), 'good', '62 起是开心')
+  eq(moodFace(42), 'ok', '42 起是一般')
+  eq(moodFace(25), 'worry', '25 起是心疼')
+  eq(moodFace(24), 'sad', '再低是难过')
+  eq(moodFace(NaN), 'ok', '拿不到数时给中间那张（不报错）')
+}
+
+// --------------------------------------------------------------------------
+// 表情图的静态路由：图是真 PNG，且不能让人顺着路径翻出去
+// --------------------------------------------------------------------------
+console.log('表情图静态路由（沙箱）：')
+{
+  const sandbox = mkdtempSync(join(tmpdir(), 'soul-mood-'))
+  process.env.DSH_HOME = sandbox
+  mkdirSync(join(sandbox, 'agents'), { recursive: true })
+
+  const api = await import('../lib/api.js')
+  const routes = []
+  const ctx = {
+    get(key) {
+      return key === 'webServer'
+        ? { register: (route) => { routes.push(route); return () => {} } }
+        : undefined
+    },
+    effect() {}
+  }
+  api.registerAssets(ctx)
+  eq(routes.length, 1, '注册了一条静态路由')
+  eq(routes[0].path, '/dsh-agent-soul', '路径对')
+
+  const call = (url) => {
+    let head = null
+    let body = null
+    routes[0].handler(
+      { url, method: 'GET' },
+      {
+        writeHead(code, headers) { head = { code, headers } },
+        end(buf) { body = buf }
+      }
+    )
+    return { head, body }
+  }
+
+  const png = call('/dsh-agent-soul/face-ok.png')
+  eq(png.head.code, 200, '表情图能取到')
+  eq(png.head.headers['Content-Type'], 'image/png', 'Content-Type 是 image/png（不是 JSON）')
+  ok(Buffer.isBuffer(png.body) && png.body.length > 1000, '吐出来的是真文件字节')
+  ok(png.body[0] === 0x89 && png.body.slice(1, 4).toString() === 'PNG', '字节头是 PNG 魔数')
+  ok(String(png.head.headers['Cache-Control']).includes('immutable'), '标了长期缓存（图不改）')
+
+  eq(call('/dsh-agent-soul/face-nope.png').head.code, 404, '不认识的文件 404')
+  eq(call('/dsh-agent-soul/..%2f..%2fpackage.json').head.code, 404, '路径穿越被白名单挡住')
+  eq(call('/dsh-agent-soul/package.json').head.code, 404, '只能取那五张图')
+
+  rmSync(sandbox, { recursive: true, force: true })
+  delete process.env.DSH_HOME
 }
 
 // --------------------------------------------------------------------------

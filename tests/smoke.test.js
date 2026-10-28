@@ -164,10 +164,14 @@ console.log('记忆真的进了卡：')
 
 console.log('API：')
 {
-  eq(ctx.__apiRoutes.length, 1, '注册了一组 HTTP 路由')
-  const route = ctx.__apiRoutes[0]
-  eq(route.path, '/api/soul', '路径正确')
+  // 两组：JSON 接口 + 心情表情图（缺了图，设置页的心情卡会空一块）
+  eq(ctx.__apiRoutes.length, 2, '注册了两组 HTTP 路由')
+  const route = ctx.__apiRoutes.find((r) => r.path === '/api/soul')
+  ok(route !== undefined, '设置页接口路径正确')
   ok(typeof route.handler === 'function', '有 handler')
+  const assets = ctx.__apiRoutes.find((r) => r.path === '/dsh-agent-soul')
+  ok(assets !== undefined, '表情图路由注册了')
+  ok(typeof assets.handler === 'function', '表情图有 handler')
 }
 
 console.log('幂等（重复 apply 不该炸）：')

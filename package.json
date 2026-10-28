@@ -1,0 +1,70 @@
+{
+  "name": "dsh-agent-soul",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "给 DSH 的 agent 一套会忘事的记忆、一份会变的人格和一份会起伏的心情：人格按小节合并（项目覆盖全局但不吃掉全局），记忆按人的规律衰减（清晰→模糊→只剩印象→遗忘），「心里惦记的事」让她的主动有连续性，心情跟着每轮对话自己判断、自己平复（不注入、无挂饰）。",
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "agent",
+    "memory",
+    "mood",
+    "persona",
+    "personality",
+    "soul"
+  ],
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "docs",
+    "tools",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node tests/memory.test.js && node tests/mood.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "test:memory": "node tests/memory.test.js",
+    "test:mood": "node tests/mood.test.js",
+    "test:persona": "node tests/persona.test.js",
+    "test:purpose": "node tests/purpose.test.js",
+    "test:registry": "node tests/registry.test.js",
+    "test:smoke": "node tests/smoke.test.js",
+    "test:client": "node tests/client.test.js",
+    "sync": "node tools/sync.mjs"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  },
+  "engines": {
+    "node": ">=22.19"
+  },
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danshuyue/dsh-agent-soul.git"
+  },
+  "bugs": {
+    "url": "https://github.com/danshuyue/dsh-agent-soul/issues"
+  },
+  "homepage": "https://github.com/danshuyue/dsh-agent-soul#readme",
+  "license": "MIT"
+}

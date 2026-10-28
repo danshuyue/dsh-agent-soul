@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>dsh-agent-soul 设置页外观预览</title>
+<style>
+html,body{margin:0;padding:24px;background:#f6f7f8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+.pv-wrap{max-width:760px;margin:0 auto}
+.pv-tip{font-size:12px;color:#6b7280;margin:0 0 12px}
+.pv-tip code{background:#e8eaed;padding:1px 5px;border-radius:4px}
+.soul-app{
+--soul-fg:var(--dsw-alias-label-primary,#1f1c18);
+--soul-muted:var(--dsw-alias-label-secondary,#6f6558);
+--soul-faint:var(--dsw-alias-label-tertiary,#8a7f6e);
+--soul-line:var(--dsw-alias-border-l2,#e3daca);
+--soul-line-soft:var(--dsw-alias-border-l1,#ece5d8);
+--soul-bg:var(--dsw-alias-bg-layer-1,#fffdf8);
+--soul-bg2:var(--dsw-alias-bg-layer-2,#f4efe4);
+--soul-brand:var(--dsw-alias-brand-primary,#1f6feb);
+--soul-ok:var(--dsw-alias-state-success-primary,#2f6b46);
+--soul-warn:var(--dsw-alias-state-warn-primary,#8a6a2f);
+--soul-err:var(--dsw-alias-state-error-primary,#a83a2c);
+font-family:var(--dsw-font-family-sans,var(--dsw-font-family,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif));
+color:var(--soul-fg);font-size:13px;line-height:20px;box-sizing:border-box;max-width:100%;
+border:1px solid var(--soul-line);border-radius:14px;overflow:hidden;background:rgba(127,127,127,.04)}
+.soul-head{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;padding:16px 18px 12px;border-bottom:1px solid var(--soul-line);background:rgba(127,127,127,.025)}
+.soul-kicker{margin:0 0 2px;font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--soul-faint)}
+.soul-title{margin:0;font-size:17px;font-weight:600;line-height:24px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.soul-sub{margin:4px 0 0;font-size:12px;color:var(--soul-faint)}
+.soul-dots{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.soul-dot{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--soul-muted);background:rgba(127,127,127,.10);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.soul-dot i{width:7px;height:7px;border-radius:50%;background:#8a8f98;display:inline-block}
+.soul-dot.ok i{background:#2fbf71}
+.soul-dot.warn i{background:#ffb020}
+.soul-dot.bad i{background:#ff5c5c}
+.soul-tabs{display:flex;gap:2px;padding:8px 12px 0;border-bottom:1px solid var(--soul-line);overflow-x:auto;background:rgba(127,127,127,.02)}
+.soul-tab{border:none;background:transparent;color:var(--soul-muted);font-size:12.5px;padding:8px 12px 9px;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;border-radius:6px 6px 0 0;font-family:inherit}
+.soul-tab:hover{background:rgba(127,127,127,.08);color:var(--soul-fg)}
+.soul-tab.on{color:var(--soul-fg);border-bottom-color:var(--soul-brand);font-weight:600}
+.soul-body{padding:14px 18px 16px;display:flex;flex-direction:column;gap:12px;max-height:min(64vh,720px);overflow:auto}
+.soul-card{border:1px solid var(--soul-line-soft);border-radius:10px;padding:12px 13px;background:rgba(127,127,127,.03)}
+.soul-card-h{display:flex;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:wrap}
+.soul-card-t{margin:0;font-size:13px;font-weight:600}
+.soul-card-m{margin-left:auto;font-size:11px;color:var(--soul-faint)}
+.soul-note{margin:5px 0 0;font-size:11.5px;line-height:17px;color:var(--soul-faint)}
+.soul-kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:.5px solid var(--soul-line-soft);font-size:12px}
+.soul-kv:last-child{border-bottom:none}
+.soul-kv>span{color:var(--soul-faint);flex:0 0 auto}
+.soul-kv>b{font-weight:500;text-align:right;word-break:break-all}
+.soul-meter{height:6px;border-radius:3px;background:rgba(127,127,127,.16);overflow:hidden;margin:7px 0 3px}
+.soul-meter-fill{height:100%;border-radius:3px;background:var(--soul-brand);transition:width .18s ease}
+.soul-meter-fill.warn{background:#ffb020}
+.soul-meter-fill.bad{background:#ff5c5c}
+.soul-badge{font-size:11px;padding:1px 7px;border-radius:6px;white-space:nowrap;background:rgba(127,127,127,.12);color:var(--soul-muted)}
+.soul-badge.vivid{background:rgba(47,191,113,.15);color:#1f7a4d}
+.soul-badge.clear{background:rgba(31,111,235,.13);color:#1f6feb}
+.soul-badge.fuzzy{background:rgba(255,176,32,.17);color:#8a6a2f}
+.soul-badge.trace{background:rgba(255,92,92,.14);color:#a83a2c}
+.soul-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.soul-item{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--soul-line-soft);border-radius:8px;padding:9px 10px;background:var(--soul-bg)}
+.soul-item:hover{border-color:var(--soul-line)}
+.soul-item-text{flex:1 1 auto;min-width:0;word-break:break-word}
+.soul-meta{margin-top:3px;font-size:11px;line-height:16px;color:var(--soul-faint)}
+.soul-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.soul-grow{flex:1 1 auto;min-width:0}
+.soul-btn{font-family:inherit;font-size:12px;line-height:18px;padding:4px 10px;border:1px solid var(--soul-line);background:var(--soul-bg);color:var(--soul-fg);border-radius:6px;cursor:pointer;white-space:nowrap}
+.soul-btn:hover{background:rgba(127,127,127,.09);border-color:var(--soul-muted)}
+.soul-btn.on{background:var(--soul-brand);border-color:var(--soul-brand);color:#fff}
+.soul-btn.danger{color:var(--soul-err)}
+.soul-btn.danger:hover{background:rgba(255,92,92,.10);border-color:var(--soul-err)}
+.soul-input,.soul-textarea{width:100%;box-sizing:border-box;font-family:inherit;font-size:12.5px;padding:6px 9px;border:1px solid var(--soul-line);border-radius:7px;background:var(--soul-bg);color:var(--soul-fg)}
+.soul-input:focus,.soul-textarea:focus{outline:none;border-color:var(--soul-brand)}
+.soul-textarea{min-height:300px;resize:vertical;line-height:1.65;font-family:var(--dsw-font-family-mono,ui-monospace,SFMono-Regular,Menlo,monospace)}
+.soul-empty{padding:18px 0;text-align:center;font-size:12px;color:var(--soul-faint)}
+.soul-err{margin:0;padding:6px 0;font-size:12px;color:var(--soul-err)}
+.soul-pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--soul-line-soft);color:var(--soul-muted);white-space:nowrap}
+.soul-hint{font-size:11px;color:var(--soul-faint)}
+.soul-legend{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:.5px solid var(--soul-line-soft)}
+.soul-legend:last-child{border-bottom:none}
+.soul-lv{flex:0 0 auto;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:600;background:rgba(127,127,127,.14);color:var(--soul-muted);margin-top:1px}
+.soul-legend.on .soul-lv{background:var(--soul-brand);color:#fff}
+.soul-legend-body{flex:1 1 auto;min-width:0}
+.soul-legend-name{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px}
+.soul-path{margin-top:2px;font-size:11px;line-height:15px;color:var(--soul-faint);word-break:break-all;font-family:var(--dsw-font-family-mono,ui-monospace,Menlo,monospace)}
+.soul-warn-box{margin-top:9px;padding:8px 10px;border:1px solid rgba(255,176,32,.45);border-radius:8px;background:rgba(255,176,32,.10);font-size:11.5px;line-height:17px;color:var(--soul-warn)}
+.soul-btn:disabled{opacity:.45;cursor:not-allowed}
+.soul-priority{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--soul-faint)}
+.soul-section-title{font-size:14px;font-weight:600;margin:0}
+.soul-banner{border:1px solid var(--soul-line-soft);border-radius:9px;padding:8px 11px;background:rgba(127,127,127,.05)}
+.soul-banner-line{display:flex;gap:10px;padding:3px 0;font-size:12px;align-items:flex-start}
+.soul-banner-key{flex:0 0 92px;color:var(--soul-faint);white-space:nowrap}
+.soul-banner-val{flex:1 1 auto;min-width:0;word-break:break-all;color:var(--soul-fg)}
+.soul-banner-val.warn{color:var(--soul-warn)}
+.soul-steps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--soul-line-soft);border-radius:9px;background:rgba(127,127,127,.02)}
+.soul-step{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:6px;border:1px solid transparent;font-size:12px;color:var(--soul-faint)}
+.soul-step.on{background:rgba(47,191,113,.13);color:#1f7a4d;border-color:rgba(47,191,113,.32)}
+.soul-step.eff{font-weight:600}
+.soul-step i{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;display:inline-block}
+.soul-arrow{color:var(--soul-faint);font-size:12px;padding:0 1px}
+.soul-pill-tab{font-family:inherit;font-size:12.5px;padding:5px 13px;border-radius:999px;border:1px solid var(--soul-line);background:var(--soul-bg);color:var(--soul-muted);cursor:pointer}
+.soul-pill-tab:hover{border-color:var(--soul-muted);color:var(--soul-fg)}
+.soul-pill-tab.on{background:var(--soul-brand);border-color:var(--soul-brand);color:#fff;font-weight:600}
+.soul-pill-tab:disabled{opacity:.45;cursor:not-allowed}
+.soul-switch{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--soul-muted);cursor:pointer;white-space:nowrap}
+.soul-switch input{appearance:none;-webkit-appearance:none;width:34px;height:19px;border-radius:10px;background:rgba(127,127,127,.30);position:relative;cursor:pointer;transition:background .15s;margin:0;border:none;flex:0 0 auto}
+.soul-switch input:checked{background:var(--soul-brand)}
+.soul-switch input::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:transform .15s}
+.soul-switch input:checked::after{transform:translateX(15px)}
+.soul-select{font-family:inherit;font-size:12px;padding:5px 8px;border:1px solid var(--soul-line);border-radius:7px;background:var(--soul-bg);color:var(--soul-fg);flex:1 1 auto;min-width:0;max-width:100%}
+.soul-row-label{flex:0 0 52px;font-size:12px;color:var(--soul-faint);white-space:nowrap}
+.soul-filebar{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--soul-line-soft);border-radius:8px;background:rgba(127,127,127,.04);font-size:11.5px;color:var(--soul-faint);flex-wrap:wrap}
+.soul-filebar-path{flex:1 1 auto;min-width:0;word-break:break-all;font-family:var(--dsw-font-family-mono,ui-monospace,Menlo,monospace);color:var(--soul-muted)}
+@supports not (color:var(--dsw-alias-label-primary)){.soul-app{--soul-fg:#241f18;--soul-muted:#6f6558;--soul-faint:#9a9084;--soul-line:#e0d7c8;--soul-line-soft:#ece5d8;--soul-bg:#fffdf8;--soul-bg2:#f6f2ea;--soul-brand:#1f6feb;--soul-ok:#2f6b46;--soul-warn:#8a6a2f;--soul-err:#a83a2c}}
+</style>
+</head>
+<body>
+<div class="pv-wrap">
+<p class="pv-tip">这是 <code>lib/client.js</code> 里真实 CSS 的静态预览（用 fallback 色值）。DSH 里会用你当前主题的变量。</p>
+
+<div class="soul-app">
+  <div class="soul-head">
+    <div>
+      <p class="soul-kicker">agent soul</p>
+      <h1 class="soul-title">灵魂</h1>
+      <p class="soul-sub">工作目录：D://DSH workspace\work</p>
+    </div>
+    <div class="soul-dots">
+      <span class="soul-dot ok"><i></i>人格已注入</span>
+      <span class="soul-dot ok"><i></i>37 条记忆</span>
+      <span class="soul-dot ok"><i></i>3 件惦记</span>
+    </div>
+  </div>
+  <div class="soul-tabs">
+    <button class="soul-tab on">概览</button>
+    <button class="soul-tab">人格</button>
+    <button class="soul-tab">记忆</button>
+    <button class="soul-tab">目的</button>
+    <button class="soul-tab">设置</button>
+  </div>
+  <div class="soul-body">
+    <div class="soul-card">
+      <div class="soul-card-h"><p class="soul-card-t">这一刻生效了什么</p><span class="soul-card-m">叠加模式</span></div>
+      <div class="soul-kv"><span>人格来源</span><b>2 份</b></div>
+      <div class="soul-kv"><span>正文</span><b>1,023 字</b></div>
+      <div class="soul-kv"><span>合并模式</span><b>叠加（项目覆盖同名小节）</b></div>
+      <p class="soul-note">项目人格覆盖同名小节，全局其余部分继续生效。</p>
+    </div>
+    <div class="soul-card">
+      <div class="soul-card-h"><p class="soul-card-t">记忆</p></div>
+      <div class="soul-row">
+        <div class="soul-grow">
+          <div class="soul-row">
+            <span style="font-weight:600">37 条</span>
+            <span class="soul-pill">固定 2</span>
+            <span class="soul-pill">本项目 6</span>
+          </div>
+          <div class="soul-meter"><div class="soul-meter-fill" style="width:34%"></div></div>
+          <p class="soul-meta">8,204 / 24,000 字（34%）</p>
+        </div>
+      </div>
+      <div class="soul-row" style="margin-top:8px;gap:6px">
+        <span class="soul-badge vivid">清晰 5</span>
+        <span class="soul-badge clear">清楚 12</span>
+        <span class="soul-badge fuzzy">模糊 11</span>
+        <span class="soul-badge trace">只剩印象 9</span>
+      </div>
+    </div>
+    <div class="soul-card">
+      <div class="soul-card-h"><p class="soul-card-t">记忆条目</p></div>
+      <div class="soul-list">
+        <div class="soul-item">
+          <span class="soul-badge vivid">清晰</span>
+          <div class="soul-item-text">
+            <div>树树的目标是嵌入式工程师，偏软件方向（固件 / RTOS / 驱动）</div>
+            <div class="soul-meta">重要度 90 · 提到过 3 次 · 自动记的 · 已固定 · owner/self</div>
+          </div>
+          <button class="soul-btn">取消固定</button>
+          <button class="soul-btn danger">删</button>
+        </div>
+        <div class="soul-item">
+          <span class="soul-badge fuzzy">模糊</span>
+          <div class="soul-item-text">
+            <div>在群里聊到过一句关于数学建模的事，具体内容已经记不太清了…（细节记不清了）</div>
+            <div class="soul-meta">重要度 46 · 提到过 0 次 · 自动记的</div>
+          </div>
+          <button class="soul-btn">固定</button>
+          <button class="soul-btn danger">删</button>
+        </div>
+      </div>
+    </div>
+    <div class="soul-card">
+      <div class="soul-card-h"><p class="soul-card-t">心里惦记的事</p><span class="soul-card-m">3 件</span></div>
+      <div class="soul-row" style="gap:6px"><span class="soul-pill">状态：有点好奇</span></div>
+      <div class="soul-list">
+        <div class="soul-item">
+          <span class="soul-badge">答应过的</span>
+          <div class="soul-item-text"><div>下次一起把桥接的补历史功能补完</div></div>
+          <button class="soul-btn">放下了</button>
+        </div>
+        <div class="soul-item">
+          <span class="soul-badge">想弄明白</span>
+          <div class="soul-item-text"><div>USART 那个中断为什么一进 DMA 就卡住</div></div>
+          <button class="soul-btn">放下了</button>
+        </div>
+      </div>
+      <div class="soul-row" style="margin-top:10px;gap:14px">
+        <div style="flex:1 1 110px"><span class="soul-meta">想弄明白 71</span><div class="soul-meter"><div class="soul-meter-fill" style="width:71%"></div></div></div>
+        <div style="flex:1 1 110px"><span class="soul-meta">在乎 52</span><div class="soul-meter"><div class="soul-meter-fill" style="width:52%"></div></div></div>
+        <div style="flex:1 1 110px"><span class="soul-meta">想分享 38</span><div class="soul-meter"><div class="soul-meter-fill" style="width:38%"></div></div></div>
+        <div style="flex:1 1 110px"><span class="soul-meta">想搞懂 64</span><div class="soul-meter"><div class="soul-meter-fill" style="width:64%"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="soul-app" style="margin-top:22px">
+  <div class="soul-head">
+    <div>
+      <p class="soul-kicker">agent soul</p>
+      <h1 class="soul-title">灵魂</h1>
+      <p class="soul-sub">工作目录：D:\DSH workspace\work</p>
+    </div>
+    <div class="soul-dots">
+      <span class="soul-dot ok"><i></i>人格已注入</span>
+      <span class="soul-dot ok"><i></i>12 条记忆</span>
+      <span class="soul-dot ok"><i></i>1 件惦记</span>
+    </div>
+  </div>
+  <div class="soul-tabs">
+    <button class="soul-tab">概览</button>
+    <button class="soul-tab on">人格</button>
+    <button class="soul-tab">记忆</button>
+    <button class="soul-tab">目的</button>
+    <button class="soul-tab">设置</button>
+  </div>
+  <div class="soul-body">
+
+    <!-- 头部：标题 + 总开关 -->
+    <div class="soul-row">
+      <div class="soul-grow">
+        <p class="soul-section-title">人格 · AGENT.md</p>
+        <p class="soul-note">用 Markdown 写她是谁。项目里只写和其它项目不同的部分，其余从全局继承。</p>
+      </div>
+      <label class="soul-switch"><input type="checkbox" checked><span>已启用</span></label>
+    </div>
+
+    <!-- 横幅：本会话当前生效 / 当前工作目录 -->
+    <div class="soul-banner">
+      <div class="soul-banner-line">
+        <span class="soul-banner-key">本会话当前生效</span>
+        <span class="soul-banner-val">项目内 AGENT.md · D:\DSH workspace\work\AGENT.md（＋叠加全局底座）</span>
+      </div>
+      <div class="soul-banner-line">
+        <span class="soul-banner-key">当前工作目录</span>
+        <span class="soul-banner-val">D:\DSH workspace\work</span>
+      </div>
+    </div>
+
+    <!-- 横向优先级条 -->
+    <div class="soul-steps">
+      <span class="soul-step on eff"><i></i>项目内 AGENT.md</span>
+      <span class="soul-arrow">›</span>
+      <span class="soul-step"><i></i>项目人格（本机）</span>
+      <span class="soul-arrow">›</span>
+      <span class="soul-step on"><i></i>全局人格</span>
+      <p class="soul-note" style="flex:1 1 100%;margin:6px 0 0">项目层取前两步里优先级最高的那一份；本插件再把全局底座按小节叠加上来（同名小节以项目为准）。</p>
+    </div>
+
+    <!-- 覆盖警告 -->
+    <div class="soul-warn-box">这个工作目录里有 AGENT.md，它的优先级高于「项目人格（本机）」。你在下面第 2 层改的内容不会生效 —— 要么直接改那个文件，要么删掉它。</div>
+
+    <!-- 页签与操作 -->
+    <div class="soul-row">
+      <button class="soul-pill-tab on">全局人格</button>
+      <button class="soul-pill-tab">项目人格</button>
+      <span class="soul-grow"></span>
+      <button class="soul-btn">打开原文件</button>
+      <button class="soul-btn">重新读取</button>
+      <button class="soul-btn on">保存</button>
+    </div>
+
+    <!-- 项目专属：工作区下拉 + 任意目录（切到「项目人格」时显示） -->
+    <div class="soul-row">
+      <span class="soul-row-label">工作区</span>
+      <select class="soul-select">
+        <option>work（已有人格·已登记） — D:\DSH workspace\work</option>
+        <option>QQ对话（空·已登记） — D:\DSH workspace\QQ对话</option>
+        <option>1（空·已登记） — D:\DSH workspace\1</option>
+      </select>
+    </div>
+    <div class="soul-row">
+      <span class="soul-row-label">任意目录</span>
+      <input class="soul-input" placeholder="例：D:\team（也可以点右边用系统选择器挑）">
+      <button class="soul-btn">选择文件夹</button>
+      <button class="soul-btn">使用</button>
+    </div>
+
+    <!-- 文件栏：路径 + 上次改动 -->
+    <div class="soul-filebar">
+      <span class="soul-filebar-path">C:\Users\Administrator\.dsh\agents\projects\work-ea826e02…</span>
+      <span>上次改动 10月26日 12:48</span>
+    </div>
+
+    <p class="soul-note">全局是底座：所有会话都会吃到。项目里没有同名小节时，这里的内容照样生效。</p>
+    <textarea class="soul-textarea" spellcheck="false"># 你是谁
+你是小唐，树树的技术搭子。
+
+# 语气与形态
+说话干脆，有观点，不绕弯。
+
+# 工程约定
+注释和提交信息用中文。</textarea>
+    <p class="soul-meta">86 字 · 已保存（86 字），下一个回合生效</p>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

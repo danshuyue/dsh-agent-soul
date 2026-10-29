@@ -2,7 +2,7 @@
 
 > 给 DSH 的 agent 一份**会忘事的记忆**和一套**会变的人格**。
 
-它做四件事：
+它做五件事：
 
 | | 解决什么 |
 |---|---|
@@ -10,6 +10,7 @@
 | **记忆** | 值得记的事自己进来，随时间变模糊：清晰 → 清楚 → 模糊 → 只剩印象 → 遗忘。忘了不是删掉，是**先变得说不清** |
 | **目的** | 从记忆里长出一份「心里惦记的事」，让她的主动有连续性 —— 不是定时问候，是主动想起 |
 | **心情** | 每轮对话结束后自己判一次心情起伏（心情值 + 七情 + 时间线），只记账、**不注入提示词** —— 她不会被自己的情绪牵着说话，你也不用为情绪多付 token |
+| **日记** | 每天晚上到点，把当天的对话沉淀成两篇日记：一篇**公开**（可以拿给你看），一篇**私密**（只写给自己）。靠对话流水积累 + 摘要压缩，她自己用文件工具写 |
 
 不管 B站、不管 QQ、不管桌宠。这个插件只关心「她是谁」和「她记得什么」。
 
@@ -42,7 +43,7 @@
 - 每天第一次打开，它会把不重要的事降一格清晰度
 - 她答应过的事、没弄明白的事，自动变成「心里惦记的事」
 
-### 2. 设置 → 灵魂（六个标签）
+### 2. 设置 → 灵魂（七个标签）
 
 | 标签 | 用来干什么 |
 |---|---|
@@ -51,6 +52,7 @@
 | **记忆** | 搜、看每条的清晰度和重要度、固定（永不遗忘）、删、手动加一条 |
 | **目的** | 四个驱动值的当前读数 + 惦记的事清单，可以「放下了」 |
 | **心情** | 此刻心情值 + 七情读数 + 时间线；可重置、可手动跑一次平复 |
+| **日记** | 自动写日记的开关与时间、公开/私密语气、手动触发（可带备注）、最近日记列表 |
 | **设置** | 注入预算、叠加还是互斥、各项开关、立即整理一次 |
 
 ### 3. 直接跟她说话
@@ -173,6 +175,61 @@
 
 ---
 
+## 日记：把一天沉淀成公开 + 私密两篇
+
+每天晚上（默认 22:00）到点，插件会**发一条消息给 agent**，让她自己用文件工具写两篇日记：
+
+- **公开**：`~/.dsh/agents/diary/public/YYYY-MM-DD.md`，首行 `【公开】`，可以拿给你看
+- **私密**：`~/.dsh/agents/diary/private/YYYY-MM-DD.md`，首行 `【私密】`，只写给自己
+
+「私密」**完全靠提示词措辞**——文件是明文，没有加密。任何能读 `~/.dsh` 的人都能打开。
+设置页里的「最近日记」也只展示公开那一篇的内容，私密只显示「有/没有」。
+
+### 一天的分界线不是 00:00
+
+日记 `2026-10-29` 覆盖的是 **2026-10-28 22:00 ~ 2026-10-29 22:00** 的对话。
+这是刻意的：晚上十点写的时候，「今天」在感受上还没结束。
+
+### 对话是怎么拿到的
+
+不是到点才去翻会话（冷会话拿不到），而是**平时就攒**：
+
+```
+每轮对话（tick 注入时）
+  └─ 扫描新增的 user/message + assistant/message
+  └─ 追加到 ~/.dsh/agents/diary/conversations/YYYY-MM-DD.jsonl
+```
+
+过滤口径跟记忆提取一致：`runtime-context`、`time-context`、技能清单、审批通知这类
+宿主注入的上下文一条都不进 JSONL。
+
+到点触发时：
+
+```
+读 JSONL（按 22:00 分界裁剪两天文件）
+  → LLM 摘要压缩（失败用原文截断兜底）
+  → 读最近 4 天日记
+  → 组装一条触发消息 → agent.followup()
+  → agent 自己写 public + private 两个文件
+```
+
+### 启动补写
+
+DSH 关机期间不会跑定时器。所以启动时会检查：**今天之前最近的缺失日**（没有私密日记就算缺失），
+只补那一天。更早的不补——一次补十篇只会让日记变成流水账。
+
+### 手动触发
+
+设置页「日记」页签里点「现在写日记」，可以选日期、加备注。或者直接调接口：
+
+```bash
+curl -X POST http://127.0.0.1:<PORT>/api/soul/diary \
+  -H 'content-type: application/json' \
+  -d '{"date":"2026-10-29","note":"今天发生了一些特别的事"}'
+```
+
+---
+
 ## 安装
 
 ```bash
@@ -189,7 +246,7 @@ mklink /J "<DSH_HOME>\profiles\desktop\node_modules\dsh-agent-soul" "<DSH_HOME>\
 # 4) 重启 DSH → 设置 → 灵魂
 ```
 
-装好之后：设置里出现「灵魂」，能看到概览、人格、记忆、目的、心情、设置六个标签。
+装好之后：设置里出现「灵魂」，能看到概览、人格、记忆、目的、心情、日记、设置七个标签。
 
 ---
 
@@ -220,6 +277,20 @@ mklink /J "<DSH_HOME>\profiles\desktop\node_modules\dsh-agent-soul" "<DSH_HOME>\
 | `memoryEnabled` | `true` | 是否注入记忆（关掉仍在后台记） |
 | `projectMemoryEnabled` | `true` | 项目记忆独立一张卡 |
 | `purposeEnabled` | `true` | 是否注入「心里惦记的事」 |
+| `diaryEnabled` | `true` | 是否启用每日日记 |
+| `diarySchedule` | `"22:00"` | 触发时间（HH:MM） |
+| `diaryCatchUp` | `true` | 启动时补写最近缺失日 |
+| `diaryBackfillDays` | `4` | 写新日记时参考前几天的旧日记 |
+| `diaryOverwrite` | `true` | 同日重复触发是否覆盖 |
+| `diaryManualNote` | `true` | 手动触发是否允许附备注 |
+| `diaryPublicTone` | `""` | 公开日记语气（空 = 让模型自己把握） |
+| `diaryPrivateTone` | `""` | 私密日记语气 |
+| `diaryMaxConversationChars` | `8000` | 摘要失败时原文截断上限 |
+| `diaryMaxSummaryChars` | `2000` | 摘要最大字数 |
+| `diarySummarizeProvider` | `""` | 摘要模型 provider（空 = 跟随会话模型） |
+| `diarySummarizeModel` | `""` | 摘要模型名称 |
+| `diaryJsonlKeepDays` | `5` | 对话 JSONL 保留天数 |
+| `diarySummarizeTimeoutMs` | `30000` | 摘要调用超时（毫秒） |
 
 记忆引擎参数（衰减天数、阈值、压缩）在 `lib/memory.js` 的 `DEFAULTS`，
 全部有注释说明为什么是这个值。
@@ -236,6 +307,10 @@ mklink /J "<DSH_HOME>\profiles\desktop\node_modules\dsh-agent-soul" "<DSH_HOME>\
 <DSH_HOME>/agents/memory/projects/<slug>.json    项目记忆卡
 <DSH_HOME>/agents/memory/purpose.json            目的状态
 <DSH_HOME>/agents/memory/archive.jsonl           遗忘档案（append-only）
+<DSH_HOME>/agents/mood/<slug>.json               心情状态（按工作区）
+<DSH_HOME>/agents/diary/conversations/YYYY-MM-DD.jsonl  当天对话流水（保留 5 天）
+<DSH_HOME>/agents/diary/public/YYYY-MM-DD.md     公开日记
+<DSH_HOME>/agents/diary/private/YYYY-MM-DD.md    私密日记（明文，靠提示词区分）
 <DSH_HOME>/agents/soul.log                       日志（2MB 轮转）
 ```
 
@@ -250,6 +325,7 @@ grep "\[apply\]"  ~/.dsh/agents/soul.log | tail -3   # 三段注入有没有起�
 grep "\[extract\]" ~/.dsh/agents/soul.log | tail -5  # 自动记忆记了几条
 grep "\[memory\]" ~/.dsh/agents/soul.log | tail -5   # 衰减/压缩做了什么
 grep "\[tool\]"   ~/.dsh/agents/soul.log | tail -5   # 工具注册成功没
+grep "\[diary\]"  ~/.dsh/agents/soul.log | tail -10  # 日记：下次触发时间、摘要结果、投递成功没
 ```
 
 **设置页「灵魂」不出现**：① 插件是不是真加载了（看 `[apply] 启动` 那行）
@@ -262,14 +338,23 @@ grep "\[tool\]"   ~/.dsh/agents/soul.log | tail -5   # 工具注册成功没
 **记忆一直在掉条数**：`archive.jsonl` 里能查回来。觉得不该忘就
 在设置页把它固定（固定后永不淘汰），或者把 `forgetAfterDays` 调大。
 
+**日记到点没写**：① `grep "\[diary\]"` 看有没有「下次触发」那行
+② 「没有可用会话」= 当时没有活着的会话且冷启动失败，手动点一次「现在写日记」
+③ 「摘要失败」不算错 —— 会用原文截断兜底，日记照常写
+④ 写出来的还是空的：看 agent 那一轮有没有真的调用文件工具，可以在「日记」页签手动触发放着看
+
+**日记内容不像自己**：`diaryPublicTone` / `diaryPrivateTone` 留空时语气全靠模型自由发挥；
+写两句具体的（「温暖但克制」「真实、不设防」）比写「好好写」有用得多。
+
 ---
 
 ## 开发
 
 ```bash
-npm test              # 全量：先构建 client，再跑 提取 / 目的复活 / 记忆 / 心情 / 人格 / 目的 / 登记 / 冒烟 / 浏览器半侧
+npm test              # 全量：先构建 client，再跑 提取 / 目的复活 / 记忆 / 日记 / 心情 / 人格 / 目的 / 登记 / 冒烟 / 浏览器半侧
 npm run build:client  # 只把 lib/client/*.js 拼成 lib/client.js
 npm run test:memory   # 只跑记忆引擎
+npm run test:diary    # 只跑日记：时间分界 / 对话扫描 / 补写 / 触发消息 / 清理
 npm run test:smoke    # 用假宿主跑一遍 apply()：注入段 + 工具 + API
 npm run test:client   # 先构建，再用假 __ModuleLoader__ 跑一遍浏览器 bundle
 ```
@@ -290,6 +375,7 @@ lib/client/persona-tab.js   人格
 lib/client/memory-tab.js    记忆
 lib/client/purpose-tab.js   目的
 lib/client/mood-tab.js      心情
+lib/client/diary-tab.js     日记
 lib/client/settings-tab.js  设置
 lib/client/app.js           外壳（SoulSection/ErrorBoundary/apply/导出）
 ```

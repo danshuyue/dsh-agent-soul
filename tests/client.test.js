@@ -152,6 +152,28 @@ console.log('设置页注册：')
   ok(registerResult !== undefined, 'inject 回调有返回值')
 }
 
+console.log('七个标签页都进了 bundle：')
+{
+  // bundle 是生成物，这里直接读它做完整性检查：
+  // 少拼一个片段（比如忘了加进 build-client 的 ORDER）时，factory 不会报错，
+  // 只是那个标签页点开是空白 —— 只有查字符串能提前发现。
+  const { readFileSync } = await import('node:fs')
+  const { fileURLToPath } = await import('node:url')
+  const { join, dirname } = await import('node:path')
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+  const bundle = readFileSync(join(root, 'lib', 'client.js'), 'utf8')
+
+  const tabs = ['overview', 'persona', 'memory', 'purpose', 'mood', 'diary', 'settings']
+  for (const key of tabs) {
+    ok(bundle.includes(`['${key}',`), `标签页 ${key} 注册了`)
+  }
+  ok(bundle.includes('function DiaryTab('), 'DiaryTab 组件拼进了 bundle')
+  ok(bundle.includes(`tab === 'diary'`), '外壳里渲染了 DiaryTab')
+  ok(bundle.includes('/diary/list'), '日记页请求了 /diary/list 接口')
+  ok(bundle.includes('/diary/read'), '日记页请求了 /diary/read 接口')
+  ok(bundle.includes('/diary'), '日记页请求了 /diary 触发接口')
+}
+
 console.log('清理：')
 {
   for (const effect of effects) {

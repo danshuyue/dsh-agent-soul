@@ -40,6 +40,7 @@ const ORDER = [
   'memory-tab.js',
   'purpose-tab.js',
   'mood-tab.js',
+  'diary-tab.js',     // 日记：定时触发、手动触发、最近日记列表
   'settings-tab.js',
   'app.js',           // SoulSection + ErrorBoundary + apply + module.exports
 ]

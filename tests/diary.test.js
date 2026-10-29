@@ -5,9 +5,13 @@
  *   ① 时间工具：todayKey / parseDateLocal / scheduleMinutes / diaryDayBoundaries
  *   ② 对话扫描：collectForDiary（独立游标、跳过注入消息、收 assistant）
  *   ③ 对话读取：readDiaryConversations（22:00 分界裁剪、两天文件合并）
- *   ④ 补写：findMissingDay（只找最近一个缺失日）
- *   ⑤ 触发消息：composeTriggerMessage（包含摘要、日记路径、分步指令）
- *   ⑥ 清理：cleanupOldJsonl
+ *   ④ 补写：findMissingDay（未写过日记不补、没对话的日子不补）
+ *   ⑤ 触发消息：composePublicMessage / composePrivateMessage（公开那条绝不能带私密历史）
+ *   ⑥ 等待落盘：waitForWrite
+ *   ⑦ 清理：cleanupOldJsonl
+ *
+ * 用例里的事件形状全部照真机来：user 正文在 data.content，
+ * assistant 正文在 data.message.content（多一层 message）。
  */
 import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -38,7 +42,9 @@ const {
   collectForDiary,
   readDiaryConversations,
   findMissingDay,
-  composeTriggerMessage,
+  composePublicMessage,
+  composePrivateMessage,
+  waitForWrite,
   cleanupOldJsonl,
   readRecentDiaries,
   resetDiaryCursor
@@ -46,6 +52,7 @@ const {
 
 const { diaryJsonlPath, diaryPublicPath, diaryPrivatePath, ensureDirs } = await import('../lib/paths.js')
 const { exists } = await import('../lib/paths.js')
+const { readFileSync } = await import('node:fs')
 
 // ---------------------------------------------------------------------------
 console.log('时间工具')
@@ -161,6 +168,42 @@ const realEvent = (seq, type, text, kind) => ({
   ok(exists(file), 'JSONL 文件已创建')
 }
 
+// 真机 assistant/message：正文在 data.message.content（**有** message 这一层），
+// 且绝大多数条目只有 reasoning —— 日记要记的是她说出口的话，不是心里想的
+{
+  const realAssistantEvent = (seq, blocks) => ({
+    type: 'assistant/message',
+    seq,
+    time: Date.now(),
+    data: { turn: 1, step: 1, message: { role: 'assistant', content: blocks }, usage: {}, stream: {} },
+    surfaceOp: 'append'
+  })
+
+  resetDiaryCursor()
+  const events = [realEvent(1, 'user/message', '你好', 'user')]
+  collectForDiary(makeAgent(events))
+
+  events.push(
+    realAssistantEvent(2, [{ type: 'reasoning', text: '让我想想路径对不对，D:\\software\\deepseek\\...' }]),
+    realAssistantEvent(3, [{ type: 'tool-call', id: 'c1', name: 'pwsh', arguments: '{}' }]),
+    realAssistantEvent(4, [
+      { type: 'reasoning', text: '再想一遍' },
+      { type: 'text', text: '我今天挺开心的' }
+    ])
+  )
+  const result = collectForDiary(makeAgent(events))
+  ok(result.appended === 1, `只有真正在说话的那条进流水（实际 ${result.appended}）`)
+
+  const lines = readFileSync(diaryJsonlPath(todayKey()), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line))
+  const last = lines[lines.length - 1]
+  ok(last.role === 'assistant' && last.text.includes('我今天挺开心的'), `记的是她说的话（实际「${last.text}」）`)
+  ok(!last.text.includes('让我想想') && !last.text.includes('再想一遍'), '不含思考过程')
+  ok(!last.text.includes('pwsh'), '不含工具调用')
+}
+
 // runtime-context 应被跳过
 {
   resetDiaryCursor()
@@ -220,14 +263,14 @@ console.log('对话读取（readDiaryConversations）')
 console.log('补写（findMissingDay）')
 // ---------------------------------------------------------------------------
 
-// 没有任何日记：昨天就是缺失日
+// 一篇日记都没有（刚装上插件）：不补写 —— 补写是补断档，不是回溯历史
 {
   const today = todayKey()
   const missing = findMissingDay(today, 7)
-  ok(missing !== null, '没有日记时找到缺失日')
+  ok(missing === null, '从未写过日记 → 不补写')
 }
 
-// 昨天有日记、前天没有：只补前天？不，只找最近的 → 前天
+// 昨天有日记、前天有对话但没日记：只补前天（最近的一个）
 {
   ensureDirs()
   const today = new Date()
@@ -238,15 +281,40 @@ console.log('补写（findMissingDay）')
 
   // 昨天有日记
   writeFileSync(diaryPrivatePath(yesterdayStr), '【私密】\n2026-10-28\ntest', 'utf8')
+  // 前天有对话、没有日记
+  writeFileSync(diaryJsonlPath(dayBeforeStr), '{"t":1,"role":"user","text":"x"}\n', 'utf8')
 
-  // 前天没有日记
   const missing = findMissingDay(todayStr, 7)
   // 今天不算（findMissingDay 从 1 开始，即昨天），昨天有 → 继续往前找
-  // 前天没有 → 返回前天
-  ok(missing === dayBeforeStr, `昨天有日记、前天没有 → 补前天（实际 ${missing}，期望 ${dayBeforeStr}）`)
+  // 前天没有日记但有对话 → 返回前天
+  ok(missing === dayBeforeStr, `昨天有日记、前天有对话没日记 → 补前天（实际 ${missing}，期望 ${dayBeforeStr}）`)
 
   // 清理
   rmSync(diaryPrivatePath(yesterdayStr))
+  rmSync(diaryJsonlPath(dayBeforeStr))
+}
+
+// 缺失日没有对话：不补（补出来只能是空洞的意识流）
+{
+  ensureDirs()
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const todayStr = todayKey(today.getTime())
+  const dayBeforeStr = todayKey(today.getTime() - 2 * 24 * 60 * 60 * 1000)
+
+  // 前置：清掉前面「对话读取」用例留下的 JSONL —— 不然测到的是「有对话」那条路
+  for (let i = 1; i <= 7; i += 1) {
+    const key = todayKey(today.getTime() - i * 24 * 60 * 60 * 1000)
+    if (exists(diaryJsonlPath(key))) rmSync(diaryJsonlPath(key))
+  }
+
+  // 前提：已经写过日记（否则走「从未写过 → 不补」那条，测不到这条判据）
+  writeFileSync(diaryPrivatePath(dayBeforeStr), '【私密】\ntest', 'utf8')
+
+  const missing = findMissingDay(todayStr, 7)
+  ok(missing === null, '缺失日没有对话 → 不补（实际 ' + missing + '）')
+
+  rmSync(diaryPrivatePath(dayBeforeStr))
 }
 
 // 最近 7 天都有日记：没有缺失日
@@ -280,40 +348,64 @@ console.log('触发消息（composeTriggerMessage）')
     diaryPublicTone: '温暖但克制',
     diaryPrivateTone: '真实、不设防'
   }
-  const message = composeTriggerMessage(config, '2026-10-29', '今天聊了很多', {
+  const recent = {
     public: '【公开】\n2026-10-28\n昨天……',
     all: '【公开】\n2026-10-28\n昨天……\n\n---\n\n【私密】\n2026-10-28\n内绪……'
-  })
+  }
+  const pubMsg = composePublicMessage(config, '2026-10-29', '今天聊了很多', recent)
+  const privMsg = composePrivateMessage(config, '2026-10-29', '今天聊了很多', recent)
 
-  ok(message.includes('今天是 2026-10-29'), '包含日期')
-  ok(message.includes('今天聊了很多'), '包含摘要')
-  ok(message.includes('【第一步：写公开日记】'), '包含公开步骤')
-  ok(message.includes('【第二步：写私密日记】'), '包含私密步骤')
-  ok(message.includes('diary') || message.includes('public'), '包含文件路径')
-  ok(message.includes('温暖但克制'), '包含公开语气')
-  ok(message.includes('真实、不设防'), '包含私密语气')
-  ok(message.includes('今天没有对话'), '包含无对话提示')
+  ok(pubMsg.includes('今天是 2026-10-29'), '公开消息包含日期')
+  ok(pubMsg.includes('今天聊了很多'), '公开消息包含摘要')
+  ok(pubMsg.includes('温暖但克制'), '公开消息带公开语气')
+  ok(!pubMsg.includes('真实、不设防'), '公开消息不带私密语气')
+  ok(pubMsg.includes(diaryPublicPath('2026-10-29')), '公开消息指向公开文件')
+  ok(!pubMsg.includes(diaryPrivatePath('2026-10-29')), '公开消息不提私密文件路径')
+  ok(pubMsg.includes('私密那篇等我下一条消息'), '公开消息交代写完先停')
+
+  ok(privMsg.includes('2026-10-29'), '私密消息包含日期')
+  ok(privMsg.includes('真实、不设防'), '私密消息带私密语气')
+  ok(privMsg.includes(diaryPrivatePath('2026-10-29')), '私密消息指向私密文件')
+  ok(privMsg.includes('先读回你刚写的公开日记'), '私密消息要求先读回公开那篇')
 }
 
-// 公开段只带公开日记，私密段带全部（不能把私密日记喂给公开那一步）
+// 公开那条消息里绝不能出现私密内容 —— 这是拆成两条投递的全部意义
 {
-  const message = composeTriggerMessage({}, '2026-10-29', '今天聊了很多', {
+  const recent = {
     public: '【公开】\n2026-10-28\n只该出现在公开段',
     all: '【公开】\n2026-10-28\n只该出现在公开段\n\n---\n\n【私密】\n2026-10-28\n只该出现在私密段'
-  })
-  const pubStart = message.indexOf('【第一步：写公开日记】')
-  const privStart = message.indexOf('【第二步：写私密日记】')
-  const publicSeg = message.slice(0, privStart)
-  ok(pubStart >= 0 && pubStart < privStart, '公开步骤在私密步骤之前')
-  ok(publicSeg.includes('只该出现在公开段'), '公开段带公开日记')
-  ok(!publicSeg.includes('只该出现在私密段'), '公开段不带私密日记')
-  ok(message.slice(privStart).includes('只该出现在私密段'), '私密段带私密日记')
+  }
+  const pubMsg = composePublicMessage({}, '2026-10-29', '今天聊了很多', recent)
+  const privMsg = composePrivateMessage({}, '2026-10-29', '今天聊了很多', recent)
+
+  ok(pubMsg.includes('只该出现在公开段'), '公开消息带公开日记')
+  ok(!pubMsg.includes('只该出现在私密段'), '公开消息**不**带私密日记')
+  ok(privMsg.includes('只该出现在私密段'), '私密消息带私密日记')
+  ok(privMsg.includes('只该出现在公开段'), '私密消息带全部（公开也算）')
 }
 
 // 空语气：不出现「语气：」行
 {
-  const message = composeTriggerMessage({}, '2026-10-29', '今天没有对话', { public: '', all: '' })
-  ok(!message.includes('语气：'), '空语气不输出语气行')
+  const pubMsg = composePublicMessage({}, '2026-10-29', '今天没有对话', { public: '', all: '' })
+  const privMsg = composePrivateMessage({}, '2026-10-29', '今天没有对话', { public: '', all: '' })
+  ok(!pubMsg.includes('语气：'), '公开消息空语气不输出语气行')
+  ok(!privMsg.includes('语气：'), '私密消息空语气不输出语气行')
+  ok(pubMsg.includes('意识流'), '无对话时给出意识流提示')
+}
+
+// waitForWrite：等公开那篇落盘用，等不到也不能卡死
+{
+  const neverFile = diaryPublicPath('2099-01-01')
+  const t0 = Date.now()
+  const got = await waitForWrite(neverFile, 120, 50)
+  ok(got === false, '等不到时返回 false')
+  ok(Date.now() - t0 >= 120, '确实等满超时才返回')
+
+  ensureDirs()
+  const soonFile = diaryPublicPath('2099-01-02')
+  setTimeout(() => writeFileSync(soonFile, '【公开】', 'utf8'), 100)
+  const got2 = await waitForWrite(soonFile, 3000, 50)
+  ok(got2 === true, '文件被写入时能等到')
 }
 
 // ---------------------------------------------------------------------------

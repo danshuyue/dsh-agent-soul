@@ -10,12 +10,17 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
+  DIM_FULL,
   DIMS,
   MOOD_STEP_DIVISOR,
   TIMELINE_CAP,
   applyDelta,
   blankMoodState,
   decayMood,
+  dimPercent,
+  dimWord,
+  displayDimPercents,
+  topDims,
   judgeMood,
   moodFace,
   normMoodState,
@@ -520,6 +525,42 @@ function fakeLlm(replyJson) {
     }
   }
   eq(await judgeMood(errLlm, { options: { provider: 'p', model: 'm' } }, 'x', 'y', '', {}), null, 'finish 报错返回 null')
+}
+
+console.log('\n[显示口径] 七情按满格 20 折算百分比')
+
+{
+  eq(DIM_FULL, 20, '满格口径是 20（不是 100）')
+
+  eq(dimPercent(0), 0, '0 → 0%')
+  eq(dimPercent(10), 50, '10 → 50%（半分）')
+  eq(dimPercent(13), 65, '13 → 65%（实测一天的峰值，看着才像"挺高兴"）')
+  eq(dimPercent(20), 100, '20 → 100%')
+  eq(dimPercent(35), 100, '超过 20 仍算满格')
+  eq(dimPercent(-5), 0, '负数夹到 0')
+  eq(dimPercent('abc'), 0, '坏值当 0，不抛')
+
+  eq(dimWord(0), '没有', '0 → 没有')
+  eq(dimWord(10), '一点点', '<25 → 一点点')
+  eq(dimWord(30), '有点', '<50 → 有点')
+  eq(dimWord(60), '挺', '<75 → 挺')
+  eq(dimWord(90), '很', '>=75 → 很')
+
+  // 修过的 bug：topDims 的门槛原来写死 `v >= 15`（100 分制的 15），
+  // 而实测峰值才 12.8 —— 条件永远不成立，设置页「最突出」一直是空的。
+  const s = blankMoodState(70)
+  s.dims.happy = 12.8
+  s.dims.calm = 2
+  const top = topDims(s)
+  eq(top.length, 1, '12.8 能进「最突出」（旧门槛下这里是空的）')
+  eq(top[0].k, 'happy', '排第一的是最突出的那根')
+  eq(top[0].p, 64, '带百分比')
+  eq(top[0].word, '挺', '带定性词')
+
+  const pct = displayDimPercents(s)
+  eq(pct.happy, 64, 'displayDimPercents 给的就是百分比')
+  ok(DIMS.every(([k]) => Number.isFinite(pct[k])), '七个键齐全（缺的补 0）')
+  eq(displayDimPercents(null).happy, 0, '传 null 也不炸')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

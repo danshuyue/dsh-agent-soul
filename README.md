@@ -241,8 +241,15 @@
 - 公开那篇给 3 条，措辞是「可以写进去，但这是会拿给对方看的版本」
 - 私密那篇给 6 条，措辞是「这是你当时的真实想法，不用收着」
 
-只给事实和素材，不给「你要写得开心一点」这类指令 —— 一旦让她照着情绪演，日记就假了。
+只给事实与素材，不给「你要写得开心一点」这类指令 —— 一旦让她照着情绪演，日记就假了。
 关掉心情（`moodEnabled: false`）或把条数设成 0，就不带这一段。
+
+七情在日记里也是**百分比口径**（满格 20，见下），并且多一行「已经淡下去的」：
+峰值 65% 而现在只剩 10%，说明那股劲儿过去了 —— 这种时间感只有日记里才有。
+
+> ⚠️ 七情的「满格」是 **20 不是 100**：判定单次上限 ±10，又被 90 分钟半衰期往回磨，
+> 2026-10-29 实测一整天峰值只到 13。所以设置页和日记都把 20 当 100% 折算 ——
+> 「踏实 65%」是很踏实，不是刚过一半。
 
 ### 一天的分界线不是 00:00
 
@@ -355,11 +362,13 @@ mklink /J "<DSH_HOME>\profiles\desktop\node_modules\dsh-agent-soul" "<DSH_HOME>\
 | `diaryManualNote` | `true` | 手动触发是否允许附备注 |
 | `diaryPublicTone` | `""` | 公开日记语气（空 = 让模型自己把握） |
 | `diaryPrivateTone` | `""` | 私密日记语气 |
-| `diaryMaxConversationChars` | `8000` | 摘要失败时原文截断上限 |
+| `diaryMaxConversationChars` | `30000` | 喂给摘要的对话上限（超了只留最近的部分） |
 | `diaryMaxSummaryChars` | `2000` | 摘要最大字数 |
+| `diaryPublicMoodMoments` | `3` | 公开日记里带几条「你当时的想法」（0 = 不带） |
+| `diaryPrivateMoodMoments` | `6` | 私密日记里带几条 |
 | `diarySummarizeProvider` | `""` | 摘要模型 provider（空 = 跟随会话模型） |
 | `diarySummarizeModel` | `""` | 摘要模型名称 |
-| `diaryJsonlKeepDays` | `5` | 对话 JSONL 保留天数 |
+| `diaryJsonlKeepDays` | `7` | 对话 JSONL 保留天数（要 ≥ 补写能追溯的天数） |
 | `diarySummarizeTimeoutMs` | `30000` | 摘要调用超时（毫秒） |
 
 记忆引擎参数（衰减天数、阈值、压缩）在 `lib/memory.js` 的 `DEFAULTS`，

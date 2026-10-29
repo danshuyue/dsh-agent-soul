@@ -86,8 +86,36 @@ console.log('\n[3] 摘要：跨工作区合并 + 七情取峰值')
   eq(digest.moments.length, 2, '两个工作区的记录都收进来了')
   eq(digest.dims[0].label, '开心', '七情最靠前的是开心')
   eq(digest.dims[0].value, 9, '取的是分片里的峰值，不是最后停在哪')
+  eq(digest.dims[0].percent, 45, '同时给百分比（满格 20）')
+  eq(digest.dims[0].word, '有点', '也给定性词')
   ok(digest.dims.some((d) => d.label === '甜蜜' && d.value === 7), '另一个分片的情绪也没丢')
   ok(digest.dims.every((d) => d.value > 0), '为 0 的情绪不占版面')
+  eq(digest.fading.length, 0, '峰值就是当前值时，没有"淡下去"的项')
+}
+
+console.log('\n[3b] 摘要：情绪淡下去了')
+
+{
+  // 下午踏实到过 14（时间线快照 70%），现在只剩 2（10%）
+  const state = {
+    mood: 72,
+    dims: { happy: 0, calm: 2, sweet: 0, heartache: 0, worry: 0, sad: 0, jealous: 0 },
+    timeline: [
+      { at: at(29, 15), mood: 76, delta: 2, reason: '事情都顺了，心里很稳', dims: { happy: 2, calm: 14 } }
+    ],
+    updatedAt: 0
+  }
+  const digest = moodDigest([state], { maxMoments: 3 })
+  eq(digest.dims[0].label, '踏实', '峰值里最靠前的是踏实')
+  eq(digest.dims[0].percent, 70, '峰值按当时快照算')
+  eq(digest.fading.length, 1, '有一条已经淡下去了')
+  eq(digest.fading[0].label, '踏实', '淡下去的是踏实')
+  eq(digest.fading[0].from, 70, '从 70%')
+  eq(digest.fading[0].to, 10, '落到 10%')
+
+  const text = renderMoodDigest(digest, { mode: 'private' })
+  ok(text.includes('踏实 70%'), '渲染带百分比')
+  ok(text.includes('已经淡下去的'), '渲染出"已经淡下去"这一行')
 }
 
 console.log('\n[4] 摘要：挑起伏最大的几段')

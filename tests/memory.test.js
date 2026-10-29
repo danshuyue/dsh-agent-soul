@@ -81,6 +81,10 @@ console.log('情绪与脱敏：')
   ok(redact('我的 key 是 sk-abcdefgh12345').includes('[密钥]'), '密钥被抹掉')
   ok(redact('手机号 13812345678 记一下').includes('[手机号]'), '手机号被抹掉')
   ok(redact('看这个 https://example.com/a?b=1 挺好').includes('[链接]'), '链接被抹掉')
+  // QQ 号：桥接消息的前缀里带（「（QQ 私聊·用户本人 QQ 3472302240）」），
+  // 不脱敏的话账号会原样写进记忆卡，再跟着注入一起发出去
+  ok(redact('（QQ 私聊·用户本人 QQ 3472302240）你好').includes('[QQ号]'), 'QQ 号被抹掉')
+  ok(!redact('（QQ 私聊·用户本人 QQ 3472302240）你好').includes('3472302240'), 'QQ 号不残留明文')
   ok(!redact('普通的一句话不该被改动').includes('['), '普通文本不被误伤')
 }
 

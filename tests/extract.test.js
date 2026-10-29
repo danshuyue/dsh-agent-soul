@@ -129,6 +129,35 @@ ok(isPromotable(cand(90, [])) === false, '没标签 → 不进')
 ok(isPromotable(cand(90, ['owner', 'self']), 80) === true, '门槛可调（传 80 时 90 仍过）')
 ok(isPromotable(cand(70, ['owner', 'self']), 80) === false, '门槛可调（传 80 时 70 不过）')
 ok(isPromotable(undefined) === false, '空候选不炸')
+// 长期事实无条件进全局：换到任何工作区都该认得你，不该受分数门槛限制
+ok(isPromotable(cand(30, ['owner', 'fact'])) === true, '长期事实（fact）分数再低也进全局')
+ok(isPromotable(cand(50, ['owner', 'self'])) === false, '普通的「关于本人」没过门槛 → 不进')
+
+console.log('值不值得记：流水账 vs 画像（2026-10-29 重调判据）：')
+
+const score = (text) => worthRemembering(text, { isOwner: true })
+// 原来「主人私下说的」直接 +42，而阈值就是 42 → 只要超过 8 个字就必定入库，
+// 记忆卡里躺的全是「晚饭吃了什么」。现在这些要被拦掉。
+ok(score('今天晚饭是牛肉丸子汤，现在正在吃饭').ok === false, '吃了什么 → 不记')
+ok(score('多穿了点衣服，今天也不是很冷').ok === false, '穿了几件 → 不记')
+ok(score('今天晚上在社团待到10点才往宿舍走').ok === false, '几点到哪 → 不记')
+ok(score('我刚洗完澡，准备睡了').ok === false, '洗澡睡觉 → 不记')
+
+// 有价值的要记得下，而且分数要明显拉开 —— 这才是「判据有区分度」
+const identity = score('我是烟台大学机器人工程大二的学生')
+const goal = score('我目标是当嵌入式工程师，偏软件方向')
+const plan = score('我打算明年参加蓝桥杯嵌入式赛道')
+const casual = score('我手上有一块 STM32F103 开发板')
+ok(identity.ok === true, '身份事实 → 记')
+ok(goal.ok === true, '长期目标 → 记')
+ok(plan.ok === true, '计划打算 → 记')
+ok(casual.ok === true, '普通陈述也记（判据不能矫枉过正，主人说的话仍然偏宽松）')
+ok(identity.scored.importance >= 62, `画像分要拉开（实际 ${identity.scored.importance}）`)
+ok(
+  identity.scored.importance - casual.scored.importance >= 20,
+  `画像比流水话高 20 分以上（${identity.scored.importance} vs ${casual.scored.importance}）`
+)
+ok(identity.scored.tags.includes('fact'), '身份事实带 fact 标签（永不遗忘 + 进全局）')
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

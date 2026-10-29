@@ -29,6 +29,7 @@ process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-extract-'))
 
 const {
   collectCandidates,
+  isPromotable,
   messageContentOf,
   isHumanEvent,
   sourceKindOf,
@@ -116,6 +117,18 @@ console.log('打分：')
 ok(worthRemembering('我打算明年参加蓝桥杯嵌入式赛道').ok === true, '有信息量的话过线')
 ok(worthRemembering('嗯').ok === false, '太短的不记')
 ok(worthRemembering('```js\nconsole.log(1)\n```').ok === false, '整段代码不记')
+
+console.log('跨工作区双写判据（isPromotable）：')
+
+const cand = (importance, tags) => ({ scored: { importance, tags } })
+ok(isPromotable(cand(70, ['owner', 'self'])) === true, '关于本人 + 重要度够 → 进全局')
+ok(isPromotable(cand(62, ['owner', 'self'])) === true, '刚好卡在门槛 62 → 进全局')
+ok(isPromotable(cand(61, ['owner', 'self'])) === false, '差一分 → 不进')
+ok(isPromotable(cand(90, ['owner'])) === false, '重要但跟本人无关 → 不进（不污染全局）')
+ok(isPromotable(cand(90, [])) === false, '没标签 → 不进')
+ok(isPromotable(cand(90, ['owner', 'self']), 80) === true, '门槛可调（传 80 时 90 仍过）')
+ok(isPromotable(cand(70, ['owner', 'self']), 80) === false, '门槛可调（传 80 时 70 不过）')
+ok(isPromotable(undefined) === false, '空候选不炸')
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

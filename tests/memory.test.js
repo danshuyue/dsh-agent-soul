@@ -96,8 +96,14 @@ console.log('定档与衰减：')
   const pinned = { ...old, pinned: true }
   eq(targetClarity(pinned, cfg, now), 'vivid', 'pinned 永远清晰')
 
-  const ownerFact = { ...old, importance: 30, tags: ['owner', 'self'] }
+  const ownerFact = { ...old, importance: 30, tags: ['owner', 'fact'] }
   ok(['clear', 'fuzzy'].includes(targetClarity(ownerFact, cfg, now)), `主人的长期事实不会遗忘（${targetClarity(ownerFact, cfg, now)}）`)
+
+  // 2026-10-29：永久保护的判据从 self（宽 SELF_RE：我觉得/我在/我会…）改成了 fact
+  // （FACT_RE：目标是/专业是/想当/习惯用…）。只带 self 的一次性感受不该拿到豁免，
+  // 不然「我觉得有点累」这类会永久占位，压缩时还删不掉。
+  const oneOffFeeling = { ...old, importance: 30, tags: ['owner', 'self'] }
+  eq(targetClarity(oneOffFeeling, cfg, now), 'forgotten', '只有 self 标签（一次性感受）照常遗忘')
 
   const first = { ...old, importance: 20, tags: ['first'] }
   ok(['clear', 'fuzzy'].includes(targetClarity(first, cfg, now)), '「第一次」类的事不会遗忘')

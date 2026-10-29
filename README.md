@@ -265,7 +265,7 @@ grep "\[tool\]"   ~/.dsh/agents/soul.log | tail -5   # 工具注册成功没
 ## 开发
 
 ```bash
-npm test              # 全量：先构建 client，再跑记忆 / 心情 / 人格 / 目的 / 登记 / 冒烟 / 浏览器半侧
+npm test              # 全量：先构建 client，再跑 提取 / 目的复活 / 记忆 / 心情 / 人格 / 目的 / 登记 / 冒烟 / 浏览器半侧
 npm run build:client  # 只把 lib/client/*.js 拼成 lib/client.js
 npm run test:memory   # 只跑记忆引擎
 npm run test:smoke    # 用假宿主跑一遍 apply()：注入段 + 工具 + API

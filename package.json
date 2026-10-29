@@ -1,6 +1,6 @@
 {
   "name": "dsh-agent-soul",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "给 DSH 的 agent 一套会忘事的记忆、一份会变的人格和一份会起伏的心情：人格按小节合并（项目覆盖全局但不吃掉全局），记忆按人的规律衰减（清晰→模糊→只剩印象→遗忘），「心里惦记的事」让她的主动有连续性，心情跟着每轮对话自己判断、自己平复（不注入、无挂饰）。",
   "keywords": [
@@ -32,15 +32,16 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node tests/memory.test.js && node tests/mood.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "build:client": "node tools/build-client.mjs",
+    "test": "node tools/build-client.mjs && node tests/memory.test.js && node tests/mood.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
     "test:memory": "node tests/memory.test.js",
     "test:mood": "node tests/mood.test.js",
     "test:persona": "node tests/persona.test.js",
     "test:purpose": "node tests/purpose.test.js",
     "test:registry": "node tests/registry.test.js",
     "test:smoke": "node tests/smoke.test.js",
-    "test:client": "node tests/client.test.js",
-    "sync": "node tools/sync.mjs"
+    "test:client": "node tools/build-client.mjs && node tests/client.test.js",
+    "sync": "node tools/build-client.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"

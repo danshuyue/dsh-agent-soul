@@ -265,13 +265,36 @@ grep "\[tool\]"   ~/.dsh/agents/soul.log | tail -5   # 工具注册成功没
 ## 开发
 
 ```bash
-npm test              # 210 条断言：记忆 65 / 人格 35 / 目的 48 / 主进程冒烟 41 / 浏览器半侧 21
+npm test              # 全量：先构建 client，再跑记忆 / 心情 / 人格 / 目的 / 登记 / 冒烟 / 浏览器半侧
+npm run build:client  # 只把 lib/client/*.js 拼成 lib/client.js
 npm run test:memory   # 只跑记忆引擎
 npm run test:smoke    # 用假宿主跑一遍 apply()：注入段 + 工具 + API
-npm run test:client   # 用假 __ModuleLoader__ 跑一遍浏览器 bundle
+npm run test:client   # 先构建，再用假 __ModuleLoader__ 跑一遍浏览器 bundle
 ```
 
 单测只碰纯函数，用临时目录，不动真实的 `~/.dsh`。
+
+### 浏览器半侧是拆开写的，`lib/client.js` 是生成物
+
+DSH 客户端模块系统**一个包只出一个 bundle、兄弟文件无法同步 require**，所以浏览器
+半侧不能真的拆成互相 `import` 的文件。这里的做法是：源码按职责放在 `lib/client/`：
+
+```
+lib/client/styles.js        样式（CSS + ensureStyles）
+lib/client/api.js           同源 HTTP + cwd/时间工具
+lib/client/components.js    共享小组件（Badge/Card/Dot/Pill/Switch/Kv）
+lib/client/overview-tab.js  概览
+lib/client/persona-tab.js   人格
+lib/client/memory-tab.js    记忆
+lib/client/purpose-tab.js   目的
+lib/client/mood-tab.js      心情
+lib/client/settings-tab.js  设置
+lib/client/app.js           外壳（SoulSection/ErrorBoundary/apply/导出）
+```
+
+`tools/build-client.mjs` 按固定顺序把它们拼回**唯一入口 `lib/client.js`**。要改浏览器
+半侧就改 `lib/client/` 里的片段，然后跑 `npm run build:client`（`npm test` 会自动先构建）。
+每个片段都能单独 `node --check`，引用未定义变量只是运行时的事，不影响语法检查。
 
 后两个测试是**装进 DSH 之前唯一的保险**，因为这两类错误 `node --check` 抓不到：
 

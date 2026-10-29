@@ -33,7 +33,8 @@
   ],
   "scripts": {
     "build:client": "node tools/build-client.mjs",
-    "test": "node tools/build-client.mjs && node tests/memory.test.js && node tests/mood.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "test": "node tools/build-client.mjs && node tests/extract.test.js && node tests/memory.test.js && node tests/mood.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "test:extract": "node tests/extract.test.js",
     "test:memory": "node tests/memory.test.js",
     "test:mood": "node tests/mood.test.js",
     "test:persona": "node tests/persona.test.js",

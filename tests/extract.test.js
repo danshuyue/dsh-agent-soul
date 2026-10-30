@@ -29,11 +29,13 @@ process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-extract-'))
 
 const {
   collectCandidates,
+  isEchoOfAssistant,
   isPromotable,
   messageContentOf,
   isHumanEvent,
   sourceKindOf,
   textOfContent,
+  unwrapBridgeText,
   worthRemembering
 } = await import('../lib/extract.js')
 
@@ -158,6 +160,73 @@ ok(
   `画像比流水话高 20 分以上（${identity.scored.importance} vs ${casual.scored.importance}）`
 )
 ok(identity.scored.tags.includes('fact'), '身份事实带 fact 标签（永不遗忘 + 进全局）')
+
+// ---------------------------------------------------------------------------
+// 桥接信封与回显（2026-10-30：这三条垃圾记忆逼出来的）
+// ---------------------------------------------------------------------------
+console.log('')
+console.log('桥接信封：剥掉说明、丢掉触发模板')
+
+const envelope = unwrapBridgeText('（QQ 私聊·用户本人 QQ 3472302240）起了起了')
+ok(envelope.text === '起了起了', '剥掉「（QQ 私聊·用户本人…）」只留正文')
+ok(envelope.drop === false, '真人说的话不丢')
+
+const trigger = unwrapBridgeText('（主动搭话：距上次说话已经 6 小时 3 分钟。想说什么就说…就 qq_pass，不用硬找话。）')
+ok(trigger.drop === true, '主动搭话的模板整条丢掉')
+
+const bare = unwrapBridgeText('主动搭话：距上次说话已经 0 分钟')
+ok(bare.drop === true, '没有信封也要认得出来是模板')
+
+const casualBox = unwrapBridgeText('（笑）今天好累啊')
+ok(casualBox.text === '今天好累啊', '无害的括号说明照剥（正文留着）')
+
+ok(unwrapBridgeText('我今天很累，想早点睡').text === '我今天很累，想早点睡', '没有信封就原样返回')
+ok(unwrapBridgeText('').drop === true, '空文本丢掉')
+
+console.log('')
+console.log('回显：她自己的话被桥投回来时不能当记忆')
+
+const herLine = '唔…早上好喵~'
+ok(isEchoOfAssistant(herLine, [herLine]) === true, '一模一样 → 是回显')
+ok(isEchoOfAssistant('唔…早上好喵', [herLine]) === true, '只差标点也算回显')
+ok(isEchoOfAssistant('我帮你把衣服收进来啦', ['（动作）我帮你把衣服收进来啦（语音）']) === true, '包含关系也算')
+ok(isEchoOfAssistant('起了起了', [herLine]) === false, '不一样 → 不是回显')
+ok(isEchoOfAssistant('嗯', ['嗯']) === false, '太短的骨架不判回显（宁可留着）')
+
+console.log('')
+console.log('端到端：一轮里同时出现真话、回显、模板、路径')
+
+const mixed = [
+  { type: 'user/message', seq: 1, data: { content: [{ type: 'text', text: '（主动搭话：距上次说话已经 6 小时。qq_pass）' }], source: { kind: 'user' }, role: 'user' } },
+  { type: 'assistant/message', seq: 2, data: { content: [{ type: 'text', text: '唔…早上好喵~' }], role: 'assistant' } },
+  { type: 'user/message', seq: 3, data: { content: [{ type: 'text', text: '（QQ 私聊·用户本人 QQ 3472302240）唔…早上好喵~' }], source: { kind: 'user' }, role: 'user' } },
+  { type: 'user/message', seq: 4, data: { content: [{ type: 'text', text: '（QQ 私聊·用户本人 QQ 3472302240）起了起了' }], source: { kind: 'user' }, role: 'user' } },
+  { type: 'user/message', seq: 5, data: { content: [{ type: 'text', text: '我今早七点多才起来，昨晚在忙着给你做插件' }], source: { kind: 'user' }, role: 'user' } },
+  { type: 'user/message', seq: 6, data: { content: [{ type: 'text', text: '@C:////Users////Administrator////.dsh////plugins////dsh' }], source: { kind: 'user' }, role: 'user' } },
+  { type: 'user/message', seq: 7, data: { content: [{ type: 'text', text: 'Current runtime context. This snapshot supersedes earlier runtime-context snapsh' }], source: { kind: 'runtime-context' }, role: 'user' } }
+]
+// 第一次见会话时游标被推到「当前 seq」，所以要先让它从 0 开始，再"长出"新事件
+let mixedSeq = 0
+const mixedAgent = {
+  session: {
+    header: { id: 'session-mixed' },
+    get seq() { return mixedSeq },
+    firstLiveSeq: 0,
+    snapshotEvents: (from, to) => mixed.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+  }
+}
+collectCandidates(mixedAgent, { limit: 12 })   // 第一次只初始化游标（此刻 seq=0）
+mixedSeq = 7
+const round = collectCandidates(mixedAgent, { limit: 12 })
+
+ok(round.candidates.length === 1, `七条里只剩一条真话（实际 ${round.candidates.length} 条）`)
+ok(round.candidates[0]?.text === '我今早七点多才起来，昨晚在忙着给你做插件', '留下的正是真人说的那句')
+ok(round.candidates[0]?.text.includes('（QQ') === false, '记忆正文里不再带桥接前缀')
+
+console.log('')
+console.log('路径不该当记忆')
+ok(worthRemembering('@C:////Users////Administrator////.dsh////plugins////dsh').ok === false, '拖进来的 Windows 路径被挡')
+ok(worthRemembering('/home/user/.dsh/agents/memory').ok === false, 'Unix 路径也被挡')
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

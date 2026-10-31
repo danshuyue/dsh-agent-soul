@@ -47,7 +47,8 @@ const {
   waitForWrite,
   cleanupOldJsonl,
   readRecentDiaries,
-  resetDiaryCursor
+  resetDiaryCursor,
+  diaryAgent
 } = diary
 
 const { diaryJsonlPath, diaryPublicPath, diaryPrivatePath, ensureDirs } = await import('../lib/paths.js')
@@ -511,6 +512,179 @@ console.log('参考天数（readRecentDiaries 边界）')
 
   rmSync(diaryPublicPath(y))
   rmSync(diaryPublicPath(d2))
+}
+
+// ---------------------------------------------------------------------------
+console.log('专属日记会话（diaryAgent）')
+// ---------------------------------------------------------------------------
+
+const { saveConfig } = await import('../lib/store.js')
+const { normalizeConfig } = await import('../lib/memory.js')
+const { diaryDir } = await import('../lib/paths.js')
+const { LOG_FILE } = await import('../lib/env.js')
+
+function soulLog() {
+  try {
+    return exists(LOG_FILE()) ? readFileSync(LOG_FILE(), 'utf8') : ''
+  } catch {
+    return ''
+  }
+}
+
+// 假 agent：session.snapshotEvents 提供「最后一条消息」，append 记录标题事件
+function diaryFakeAgent(id, lastMessageAt = 0) {
+  const appended = []
+  return {
+    session: {
+      header: { id },
+      appended,
+      snapshotEvents() {
+        return lastMessageAt > 0
+          ? [{ type: 'user/message', seq: 1, time: lastMessageAt, data: {} }]
+          : []
+      },
+      append(type, data) {
+        appended.push({ type, data })
+      }
+    }
+  }
+}
+
+// 假 ctx：agents 三级 + agentDefaultModel，calls 记录调用顺序与参数
+function makeDiaryCtx({
+  live = () => undefined,
+  resume = async () => { throw new Error('resume 不可用') },
+  create = async () => { throw new Error('create 不可用') },
+  selection = { provider: 'deepseek', model: 'deepseek-chat' }
+} = {}) {
+  const calls = { get: [], resume: [], create: [] }
+  const ctx = {
+    agents: {
+      get(id) {
+        calls.get.push(id)
+        return live(id)
+      },
+      async resume(options) {
+        calls.resume.push(options)
+        return resume(options)
+      },
+      async create(options) {
+        calls.create.push(options)
+        return create(options)
+      }
+    },
+    agentDefaultModel: { currentSelection: () => selection }
+  }
+  return { ctx, calls }
+}
+
+// ① 未绑定：直接跳过，不碰 agents（更不 create）
+{
+  saveConfig({ diarySessionId: '' })
+  const before = soulLog().length
+  const { ctx, calls } = makeDiaryCtx()
+  const agent = await diaryAgent(ctx)
+  ok(agent === undefined, '未绑定会话：返回 undefined')
+  ok(calls.get.length === 0 && calls.resume.length === 0 && calls.create.length === 0, '未绑定会话：get/resume/create 都没调')
+  ok(soulLog().slice(before).includes('没有绑定日记会话'), '未绑定会留日志')
+}
+
+// ② get 命中：直接用活会话，不再 resume/create
+{
+  saveConfig({ diarySessionId: 'session-my-diary' })
+  const liveAgent = diaryFakeAgent('session-my-diary')
+  const { ctx, calls } = makeDiaryCtx({ live: (id) => (id === 'session-my-diary' ? liveAgent : undefined) })
+  const agent = await diaryAgent(ctx)
+  ok(agent === liveAgent, 'get 命中时直接返回活会话')
+  ok(calls.get[0] === 'session-my-diary', 'get 用的是绑定 id')
+  ok(calls.resume.length === 0 && calls.create.length === 0, 'get 命中就不 resume/create')
+}
+
+// ③ get 未命中 → resume 绑定的 id
+{
+  saveConfig({ diarySessionId: 'session-my-diary' })
+  const resumed = diaryFakeAgent('session-my-diary')
+  const { ctx, calls } = makeDiaryCtx({ resume: async () => ({ agent: resumed }) })
+  const agent = await diaryAgent(ctx)
+  ok(agent === resumed, 'get 未命中时冷启动拿到的 agent 被采用')
+  ok(calls.resume.length === 1 && calls.resume[0].resumeSessionId === 'session-my-diary', '冷启动用绑定的 id')
+  ok(calls.create.length === 0, '冷启动成功就不再 create')
+}
+
+// ④ 两级都失败：不创建、不猜、留原因（2026-10-31 的核心约束）
+{
+  saveConfig({ diarySessionId: 'session-my-diary' })
+  const before = soulLog().length
+  const { ctx, calls } = makeDiaryCtx({
+    live: () => { throw new Error('registry down') },
+    resume: async () => { throw new Error('session not found') }
+  })
+  let threw = false
+  let agent
+  try {
+    agent = await diaryAgent(ctx)
+  } catch {
+    threw = true
+  }
+  ok(threw === false && agent === undefined, '两级都失败：不抛异常，返回 undefined')
+  ok(calls.create.length === 0, '两级都失败也绝不调用 agents.create')
+  const log = soulLog().slice(before)
+  ok(log.includes('绑定的日记会话不可用'), '两级都失败留下「绑定的日记会话不可用」日志')
+  ok(log.includes('get 失败') && log.includes('resume 失败'), 'get / resume 的失败原因都留了日志')
+}
+
+// ⑤ 没有 agents 服务：跳过并说明
+{
+  saveConfig({ diarySessionId: 'session-my-diary' })
+  const agent = await diaryAgent({})
+  ok(agent === undefined, '没有 agents 服务时返回 undefined')
+}
+
+// 配置归一
+{
+  ok(normalizeConfig({}).diarySessionId === '', 'diarySessionId 默认空串')
+  ok(normalizeConfig({ diarySessionId: '  session-a  ' }).diarySessionId === 'session-a', 'diarySessionId 去首尾空格')
+  ok(normalizeConfig({ diarySessionId: 123 }).diarySessionId === '', 'diarySessionId 非字符串回默认空串')
+  ok(normalizeConfig({}).diaryPrivateVisible === false, 'diaryPrivateVisible 默认 false（私密不出服务器）')
+  ok(normalizeConfig({ diaryPrivateVisible: true }).diaryPrivateVisible === true, 'diaryPrivateVisible 可显式打开')
+}
+
+// ---------------------------------------------------------------------------
+console.log('私密日记查看（2026-10-31）')
+// ---------------------------------------------------------------------------
+
+const { isLoopbackRequest, privateDiaryView } = await import('../lib/api.js')
+
+// 回环判定：真 / 假各一条（含 IPv4-mapped IPv6）
+{
+  ok(isLoopbackRequest({ socket: { remoteAddress: '127.0.0.1' } }) === true, '回环判定：127.0.0.1 放行')
+  ok(isLoopbackRequest({ socket: { remoteAddress: '::1' } }) === true, '回环判定：::1 放行')
+  ok(isLoopbackRequest({ socket: { remoteAddress: '::ffff:127.0.0.1' } }) === true, '回环判定：::ffff:127.0.0.1 放行')
+  ok(isLoopbackRequest({ socket: { remoteAddress: '192.168.1.9' } }) === false, '回环判定：局域网地址拒绝')
+  ok(isLoopbackRequest({}) === false, '回环判定：拿不到 remoteAddress 也拒绝')
+}
+
+// 开关关着：403，且响应里没有正文
+{
+  ensureDirs()
+  const file = diaryPrivatePath('2026-10-31')
+  writeFileSync(file, 'PRIVATE-BODY-20261031', 'utf8')
+  const req = { url: '/api/soul/diary/private?date=2026-10-31', socket: { remoteAddress: '127.0.0.1' } }
+
+  const off = privateDiaryView(req, { diaryPrivateVisible: false })
+  ok(off.status === 403, 'diaryPrivateVisible=false 返回 403')
+  ok(off.payload.content === undefined && !JSON.stringify(off.payload).includes('PRIVATE-BODY'), 'diaryPrivateVisible=false 不返回正文')
+
+  const on = privateDiaryView(req, { diaryPrivateVisible: true })
+  ok(on.status === 200 && on.payload.content.includes('PRIVATE-BODY'), '开启后本机回环能读到私密正文')
+
+  const remote = privateDiaryView({ url: req.url, socket: { remoteAddress: '10.0.0.2' } }, { diaryPrivateVisible: true })
+  ok(remote.status === 403 && remote.payload.content === undefined, '开启后外部地址仍拒绝')
+
+  const badDate = privateDiaryView({ url: '/api/soul/diary/private?date=../x', socket: { remoteAddress: '127.0.0.1' } }, { diaryPrivateVisible: true })
+  ok(badDate.status === 400, '非法 date 拒绝（挡路径穿越）')
+
+  rmSync(file)
 }
 
 // ---------------------------------------------------------------------------

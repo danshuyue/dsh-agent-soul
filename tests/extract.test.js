@@ -24,20 +24,31 @@ function ok(condition, name) {
     console.error(`  ✗ ${name}`)
   }
 }
+function eq(actual, expected, name) {
+  const same = JSON.stringify(actual) === JSON.stringify(expected)
+  ok(same, `${name}${same ? '' : `（实际 ${JSON.stringify(actual)}，期望 ${JSON.stringify(expected)}）`}`)
+}
 
 process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-extract-'))
 
 const {
+  autoMemoryRejectReason,
   collectCandidates,
+  ingestCandidates,
   isEchoOfAssistant,
   isPromotable,
+  isSubagentSession,
   messageContentOf,
+  minImportanceForKind,
   isHumanEvent,
   sourceKindOf,
   textOfContent,
   unwrapBridgeText,
   worthRemembering
 } = await import('../lib/extract.js')
+const { addRecord, createCard, normalizeConfig } = await import('../lib/memory.js')
+const { writeAutoMemories } = await import('../lib/store.js')
+const { ensureDirs } = await import('../lib/paths.js')
 
 /** 造一条和真机一模一样的 user/message。 */
 const realEvent = (seq, text, kind) => ({
@@ -93,6 +104,14 @@ ok(isHumanEvent(realEvent(11, 'x', 'subagent')) === false, '子代理 → 不要
 ok(isHumanEvent(realEvent(12, 'x', 'schedule-xyz')) === false, '定时任务 → 不要')
 ok(isHumanEvent(realEvent(13, 'x', '某种没见过的来源')) === false, '不认识的来源 → 保守不记')
 ok(sourceKindOf(realEvent(14, 'x', 'user')) === 'user', '来源标记读得出来')
+
+console.log('')
+console.log('子会话识别（2026-10-30：source.kind 过滤挡不住「当前 agent 本身是子会话」）：')
+
+ok(isSubagentSession({ session: { header: { origin: 'subagent' } } }) === true, 'header.origin=subagent → 子会话')
+ok(isSubagentSession({ session: { header: {} } }) === false, '没有 origin → 不是子会话')
+ok(isSubagentSession({ session: { header: { id: 'x', cwd: 'D:\\' } } }) === false, '普通会话（有 id/cwd）→ 不是')
+ok(isSubagentSession(undefined) === false, '空 agent 不炸')
 
 console.log('整条链路（真机事件跑一遍）：')
 
@@ -227,6 +246,81 @@ console.log('')
 console.log('路径不该当记忆')
 ok(worthRemembering('@C:////Users////Administrator////.dsh////plugins////dsh').ok === false, '拖进来的 Windows 路径被挡')
 ok(worthRemembering('/home/user/.dsh/agents/memory').ok === false, 'Unix 路径也被挡')
+
+console.log('')
+console.log('落库硬过滤（2026-10-30：提示词管不住的用规则兜底）')
+
+// 四个拒收样例全部照抄用户当场抓到的那三条垃圾记忆 + 一条任务进度
+const junkSamples = [
+  ['帮我修改一下 C:\\Users\\Administrator\\.dsh\\plugins\\dsh-onebot-channel 插件，让每一次发给AI的信息带时间', '祈使句'],
+  ['对当前桥接代码进行最后一次检测。确认整体无误后，进行git记录并推到github。', '「对…进行…」/代码改动'],
+  ['树树最近在排查 pwsh 每次调用都在初始化阶段失败的问题，牵连 sandbox 设置', '工作状态'],
+  ['树树今天把开发板焊好了，下一步要写串口程序', '时间锚点/下一步']
+]
+for (const [text, why] of junkSamples) {
+  const reason = autoMemoryRejectReason(text)
+  ok(reason !== null, `${why} → 拒收（${String(reason)}）`)
+}
+
+// 该记的不能被误杀：稳定的身份 / 偏好 / 习惯
+for (const text of [
+  '树树是烟台大学机器人工程专业大二学生',
+  '树树不敢吃辣，一点辣都受不了',
+  '树树晚上 11 点会上线跑图',
+  '答应过树树，以后提醒他别熬夜'
+]) {
+  ok(autoMemoryRejectReason(text) === null, `不是任务 → 放行（${text.slice(0, 12)}…）`)
+}
+
+// 代码 + 动作，但整条在说人 → 放行（人比任务值钱）
+ok(
+  autoMemoryRejectReason('树树喜欢把插件代码写完才提交，习惯一次改完') === null,
+  '代码+动作但带人物属性 → 不按任务丢'
+)
+
+console.log('')
+console.log('按 kind 分档的重要度门槛（默认值只在 DEFAULTS 里定义一次）')
+
+const autoCfg = normalizeConfig({})
+eq(autoCfg.autoImportanceEvent, 70, 'event 的门槛是 70')
+eq(autoCfg.autoImportanceDefault, 42, 'fact/preference/promise 仍是 42')
+eq(minImportanceForKind('event', autoCfg), 70, 'minImportanceForKind(event) → 70')
+eq(minImportanceForKind('fact', autoCfg), 42, 'minImportanceForKind(fact) → 42')
+eq(minImportanceForKind(undefined, autoCfg), 70, '没有 kind 的自动候选按 event 卡（老路径更严）')
+eq(normalizeConfig({ autoImportanceEvent: 999 }).autoImportanceEvent, 100, '配置写过头就夹回 100，不静默失效')
+
+console.log('')
+console.log('ingestCandidates（原话直存路径）也要过闸')
+
+{
+  const card = createCard('project')
+  const written = ingestCandidates(card, addRecord, [
+    { text: '帮我把这个插件改一下，让消息带上时间', isOwner: true, scored: { importance: 88, tags: ['owner'] } },
+    { text: '树树喜欢喝冰美式，一天两杯', isOwner: true, scored: { importance: 80, tags: ['owner'] } },
+    { text: '树树随手记了一条普通的事，够长但不重要', isOwner: true, scored: { importance: 45, tags: ['owner'] } }
+  ], {}, Date.now())
+  eq(written, 1, '三条只留一条（任务被拒 + 低分 event 被拒）')
+  eq(card.records.length, 1, '卡里只进了一条')
+  ok(card.records[0].text.includes('冰美式'), '留下的是偏好那条')
+}
+
+console.log('')
+console.log('writeAutoMemories（提炼落库路径）端到端')
+
+{
+  // 用 DSH_HOME 临时目录（本文件开头已设），避免碰真卡
+  ensureDirs()
+  const report = writeAutoMemories('D:\\soul-test-proj', [
+    { text: '帮我修改一下 onebot 插件，让每次发给AI的信息带时间', importance: 80, kind: 'event' },
+    { text: '对当前桥接代码进行最后一次检测，然后提交推送', importance: 80, kind: 'event' },
+    { text: '树树最近在排查 pwsh 初始化失败的问题', importance: 80, kind: 'event' },
+    { text: '树树今天把开发板焊好了', importance: 80, kind: 'event' },
+    { text: '树树把开发板焊好了', importance: 60, kind: 'event' },
+    { text: '树树喜欢喝冰美式，一天两杯', importance: 70, kind: 'preference' },
+    { text: '树树是烟台大学机器人工程专业大二学生', importance: 85, kind: 'fact' }
+  ], {})
+  eq(report.written, 2, '七条只写两条（四类任务 + 一条低分 event 全被拒）')
+}
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

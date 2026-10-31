@@ -49,6 +49,25 @@ console.log('[1] 提示词的硬约束')
   ok(sys.includes('不要编') === true, '明确禁止编造')
   ok(sys.includes('JSON 数组') === true, '要求输出 JSON 数组')
 
+  // ── 2026-10-30：判据换成「换一天、换一个话题仍然成立」──
+  // 旧提示词的判据是「有没有信息量」，任务指令显然有信息量 → 被原样放行，
+  // 项目卡里因此躺着三条「帮我改插件 / 对代码做最后检测 / 最近在排查 pwsh」。
+  ok(sys.includes('换一天、换一个话题之后仍然成立') === true, '判据是「换个时间/话题仍成立」，不是「有信息量」')
+  ok(sys.includes('帮我') && sys.includes('麻烦你') && sys.includes('请你') && sys.includes('给我'),
+    '反例清单点了祈使句的触发词')
+  for (const verb of ['检测', '修复', '实现', '重构', '提交', '推送']) {
+    ok(sys.includes(verb) === true, `反例清单里有动作进度：「${verb}」`)
+  }
+  ok(sys.includes('最近在排查') && sys.includes('下一步要做'), '反例清单里有工作状态')
+  ok(sys.includes('今天') && sys.includes('刚才') && sys.includes('这一轮'), '反例清单里有时间锚点')
+  ok(sys.includes('只取人物信息') === true, '任务是任务、人物信息留下：只取人物信息')
+  ok(sys.includes('晚上 11 点会上线跑图'), '习惯算该记的（举例给了长期习惯）')
+  ok(sys.includes('kind 判据') === true, '输出要求里显式给出 kind 判据')
+  ok(sys.includes('fact —— 客观事实') && sys.includes('preference —— 喜好厌恶') &&
+    sys.includes('promise —— 约定') && sys.includes('event —— 一次性经历') &&
+    sys.includes('feeling —— 稳定'), '五个 kind 的判据都写清了')
+  ok(sys.includes('不许把') && sys.includes('当成记忆'), '最后一条底线：不许把「让我干什么」当记忆')
+
   const user = buildRefineUser([
     { text: '我今早七点多才起来' },
     { text: '我不敢吃辣' }

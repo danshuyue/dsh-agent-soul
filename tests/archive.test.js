@@ -9,7 +9,7 @@
  *
  * 这个文件把另外三条也钉住，顺便钉住「被回想起来的记忆要刷新」这一条。
  */
-import { mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -97,6 +97,46 @@ ok(after.recallCount >= 1, '召回次数 +1')
 ok(after.clarity !== 'fuzzy', `清晰度回升（fuzzy → ${after.clarity}）`)
 ok(typeof after.lastSeenAt === 'string' && after.lastSeenAt !== '', 'lastSeenAt 被更新')
 ok(beforeClarity !== undefined, '（原始清晰度字段存在）')
+
+console.log('自动写入触发的压缩也要进档案（2026-10-30：addRecord 之前没传 archive）')
+
+{
+  const memoryDirPath = join(process.env.DSH_HOME, 'agents', 'memory')
+  mkdirSync(memoryDirPath, { recursive: true })
+  // maxRecords 在 normalizeConfig 里下限是 20（防呆），所以这里要真塞到 20 条。
+  const tight = { maxRecords: 20, injectMaxChars: 600, warnChars: 600 }
+  const long = '这是一条占满容量用的长记忆，故意写长一点，好让 addRecord 内部的压缩真的删掉东西。'.repeat(8)
+  const card5 = memory.createCard('global')
+  for (let i = 0; i < 20; i += 1) {
+    memory.addRecord(card5, {
+      text: `第 ${i} 条：${long}`,
+      isOwner: false,
+      isPrivate: true,
+      importance: 5
+    }, tight, Date.now() - (20 - i) * 1000)
+  }
+  // compactCard 一次只降一档，只有「只剩印象」的才会真删 —— 这条路径要验的是
+  // 真删那一刻有没有留档，所以先把这 20 条都打到 trace。
+  for (const record of card5.records) record.clarity = 'trace'
+  const push = memory.addRecord(card5, {
+    text: '触发 addRecord 内部压缩的那一条：写进来的时候卡已经到上限了，必须腾地方',
+    isOwner: false,
+    isPrivate: true,
+    importance: 5
+  }, tight, Date.now())
+  ok(push.ok === true, '容量到顶时仍能写入新记录')
+
+  let lines = []
+  try {
+    lines = readFileSync(join(memoryDirPath, 'archive.jsonl'), 'utf8').trim().split('\n').filter((line) => line !== '').map((line) => JSON.parse(line))
+  } catch {
+    /* 文件不存在 → lines 保持空，下面的断言会报出来 */
+  }
+  ok(lines.length > 0, `addRecord 挤掉的记录进了 archive.jsonl（${lines.length} 条）`)
+  ok(lines.every((item) => item.reason === 'compact'), '理由与 maintain 一致：compact')
+  ok(lines.every((item) => typeof item.archivedAt === 'string' && typeof item.record?.text === 'string'), '格式与 maintain 一致：{archivedAt, reason, record}')
+  rmSync(join(memoryDirPath, 'archive.jsonl'), { force: true })
+}
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

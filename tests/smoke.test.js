@@ -10,7 +10,7 @@
  * 这一步的意义：真装进 DSH 要重启那台桌面，而重启前无法知道 apply 会不会在
  * 某个 ctx 服务上炸掉。这里用一个最小可用的假 ctx 提前把雷排掉。
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -161,6 +161,74 @@ console.log('记忆真的进了卡：')
   ok(memoryText.includes('嵌入式工程师'), '刚写的那条出现在注入文本里')
   ok(memoryText.includes('【记忆卡'), '带记忆卡标题')
 }
+
+console.log('子会话短路（2026-10-30：origin=subagent 不该注入整卡、不该提取）：')
+{
+  const memorySeg = ctx.__contextSegments.find((s) => s.name === 'soul:memory')
+  const moodSeg = ctx.__contextSegments.find((s) => s.name === 'soul:mood')
+
+  let seq = 0
+  const events = []
+  // 真机形状：header.origin 是 DSH 唯一允许的 'subagent' 标记
+  // （校验见 dsh-session/lib/types/index.js 的 validateSessionHeader）
+  const agent = {
+    session: {
+      header: { id: 'session-subagent', origin: 'subagent', cwd: '' },
+      get seq() { return seq },
+      firstLiveSeq: 0,
+      snapshotEvents: (from, to) => events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+    }
+  }
+
+  memorySeg.text({ agent })   // 第一次只推游标
+  events.push({
+    type: 'user/message',
+    seq: 1,
+    data: {
+      content: [{ type: 'text', text: '我是烟台大学机器人工程专业大二的学生' }],
+      source: { kind: 'user' },
+      role: 'user'
+    }
+  })
+  seq = 1
+
+  eq(memorySeg.text({ agent }), '', '子会话不注入记忆整卡')
+  eq(moodSeg.text({ agent }), '', '子会话不跑心情判定（返回空串）')
+
+  const cardFile = join(sandbox, 'agents', 'memory', 'global.json')
+  const cardText = existsSync(cardFile) ? readFileSync(cardFile, 'utf8') : ''
+  ok(!cardText.includes('烟台大学机器人工程专业大二'), '子会话说过的话没有被写进记忆卡')
+
+  const projectDir = join(sandbox, 'agents', 'memory', 'projects')
+  const wroteProject = existsSync(projectDir)
+    && readdirSync(projectDir).some((name) => readFileSync(join(projectDir, name), 'utf8').includes('烟台大学机器人工程专业大二'))
+  ok(wroteProject === false, '也没有写进任何项目卡')
+}
+
+console.log('kind 一路落到记录里（2026-10-30）：')
+{
+  const store = await import('../lib/store.js')
+  const cwd = join(sandbox, 'kind-project')
+  // 2026-10-30：落库加了硬闸（任务/进度丢弃 + 按 kind 分档门槛 42/70），
+  // 所以这里的分值必须跟着门槛走：fact 43 仍然远低于全局提升线 62，
+  // 照样能验证「fact 低分也进全局卡」；feeling 90 验证高分通道。
+  // 第二条原来带「今天」—— 那是时间锚点，新规则下会被拒收，换掉。
+  const report = store.writeAutoMemories(cwd, [
+    { text: '树树的专业是机器人工程（kind 测试 A）', kind: 'fact', importance: 43 },
+    { text: '树树心情一直不错（kind 测试 B）', kind: 'feeling', importance: 90 },
+    { text: '树树偏好夜里写代码（kind 测试 C）', kind: 'preference', importance: 50 }
+  ])
+  eq(report.written, 3, '三条都写进了项目卡')
+  eq(report.promoted, 2, 'fact（低分也算）+ 高分那两条进全局卡')
+
+  const project = store.projectCard(cwd)
+  const kinds = project.records.map((r) => r.kind).sort()
+  eq(kinds, ['fact', 'feeling', 'preference'], '项目卡里每条都带着自己的 kind')
+
+  const globalKinds = store.globalCard().records.filter((r) => r.text.includes('kind 测试')).map((r) => r.kind).sort()
+  eq(globalKinds, ['fact', 'feeling'], '提升到全局卡的那两条也带着 kind')
+}
+
 
 console.log('API：')
 {

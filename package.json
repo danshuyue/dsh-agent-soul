@@ -1,6 +1,6 @@
 {
   "name": "dsh-agent-soul",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "给 DSH 的 agent 一套会忘事的记忆、一份会变的人格和一份会起伏的心情：人格按小节合并（项目覆盖全局但不吃掉全局），记忆按人的规律衰减（清晰→模糊→只剩印象→遗忘），「心里惦记的事」让她的主动有连续性，心情跟着每轮对话自己判断、自己平复（不注入、无挂饰）。",
   "keywords": [
@@ -33,13 +33,19 @@
   ],
   "scripts": {
     "build:client": "node tools/build-client.mjs",
-    "test": "node tools/build-client.mjs && node tests/extract.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/memory.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "test": "node tools/build-client.mjs && node tests/extract.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/diary-new-path.test.js && node tests/memory.test.js && node tests/memory-near-dupe.test.js && node tests/recall-dedupe.test.js && node tests/recent-context.test.js && node tests/first-turn.test.js && node tests/log-rotate.test.js && node tests/inject.test.js && node tests/sticky.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
     "test:extract": "node tests/extract.test.js",
     "test:refine": "node tests/refine.test.js",
     "test:goal": "node tests/goal-revive.test.js",
     "test:archive": "node tests/archive.test.js",
     "test:diary": "node tests/diary.test.js",
+    "test:diary-new": "node tests/diary-new-path.test.js",
     "test:memory": "node tests/memory.test.js",
+    "test:memory-dupe": "node tests/memory-near-dupe.test.js",
+    "test:recall": "node tests/recall-dedupe.test.js",
+    "test:recent": "node tests/recent-context.test.js",
+    "test:log": "node tests/log-rotate.test.js",
+    "test:inject": "node tests/inject.test.js",
     "test:mood": "node tests/mood.test.js",
     "test:mood-digest": "node tests/mood-digest.test.js",
     "test:emotion": "node tests/emotion-purpose.test.js",

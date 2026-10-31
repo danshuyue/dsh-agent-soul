@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 记忆引擎测试：node tests/memory.test.js，退出码 0 = 全过。
  *
  * 只测纯函数，不碰 ~/.dsh（存档那一段用系统临时目录）。
@@ -24,6 +24,7 @@ import {
   recallArchived,
   redact,
   renderCard,
+  renderRecalledBlock,
   saveCard,
   scoreRecord,
   setPinned,
@@ -275,6 +276,104 @@ console.log('读写与状态：')
   saveCard(broken, card)
   writeFileSync(broken, '{ 这不是 JSON', 'utf8')
   eq(loadCard(broken), null, '坏文件返回 null 而不是抛错')
+
+  rmSync(dir, { recursive: true, force: true })
+}
+
+console.log('kind：提炼给的类型要真的落库、读回来还在（2026-10-30）：')
+{
+  const card = createCard('global')
+  const typed = addRecord(card, { text: '树树想明年打蓝桥杯嵌入式赛道', kind: 'preference', source: 'test' }, cfg, Date.now())
+  eq(typed.record.kind, 'preference', 'addRecord 把 kind 写进记录')
+  eq(addRecord(card, { text: '一条没给 kind 的普通记忆', source: 'test' }, cfg, Date.now()).record.kind, 'event', '缺省归到 event')
+  eq(addRecord(card, { text: '模型乱写的类型也要归一', kind: 'nonsense', source: 'test' }, cfg, Date.now()).record.kind, 'event', '非法值归到 event')
+
+  const dir = mkdtempSync(join(tmpdir(), 'soul-test-'))
+  const file = join(dir, 'card.json')
+  saveCard(file, card)
+  const back = loadCard(file)
+  eq(back.records.find((r) => r.text.includes('蓝桥杯'))?.kind, 'preference', '写盘再读回来 kind 不丢')
+  ok(back.records.every((r) => typeof r.kind === 'string'), '回读后每条都有 kind（老卡不会留下 undefined）')
+  rmSync(dir, { recursive: true, force: true })
+}
+
+console.log('kind 展示降噪（2026-10-30）：默认 event 不戴标签')
+{
+  const now = Date.now()
+  const card = createCard('global')
+  addRecord(card, { text: '树树把开发板焊好了，还顺手调了串口', kind: 'event', isOwner: true, source: 'test' }, cfg, now)
+  addRecord(card, { text: '树树是烟台大学机器人工程专业大二学生', kind: 'fact', isOwner: true, source: 'test' }, cfg, now)
+  addRecord(card, { text: '树树不敢吃辣，一点辣都受不了', kind: 'preference', isOwner: true, source: 'test' }, cfg, now)
+  addRecord(card, { text: '答应过树树，以后提醒他别熬夜', kind: 'promise', isOwner: true, source: 'test' }, cfg, now)
+  addRecord(card, { text: '树树熬夜之后会自责', kind: 'feeling', isOwner: true, source: 'test' }, cfg, now)
+
+  const block = renderRecalledBlock([card], { config: cfg, query: '树树', now })
+  ok(block.includes('〔事件〕') === false, '默认类型 event 不显示标签（老记录不再满屏〔事件〕）')
+  ok(block.includes('〔事实〕') === true, '非默认值显示中文标签：事实')
+  ok(block.includes('〔偏好〕') === true, '非默认值显示中文标签：偏好')
+  ok(block.includes('〔约定〕') === true, '非默认值显示中文标签：约定')
+  ok(block.includes('〔感受〕') === true, '非默认值显示中文标签：感受')
+  ok(block.includes('〔fact〕') === false && block.includes('〔preference〕') === false, '标签用中文，不出现英文 kind')
+}
+
+console.log('老记录 kind 迁移（v1 → v2，2026-10-30）')
+{
+  const dir = mkdtempSync(join(tmpdir(), 'soul-test-'))
+  const file = join(dir, 'legacy.json')
+  const base = {
+    clarity: 'vivid',
+    importance: 70,
+    createdAt: '2026-09-01T10:00:00.000Z',
+    lastSeenAt: '2026-09-02T10:00:00.000Z',
+    recallCount: 2,
+    pinned: false,
+    isInitial: false,
+    source: 'auto',
+    scope: 'global'
+  }
+  const legacy = {
+    version: 1,
+    scope: 'global',
+    records: [
+      { ...base, id: 'r1', text: '树树是烟台大学机器人工程专业大二学生', tags: ['owner', 'fact'] },
+      { ...base, id: 'r2', text: '第一次和树树说话是三月的一个雨天', tags: ['owner', 'first'] },
+      { ...base, id: 'r3', text: '树树专业是机器人工程，现在大二', tags: ['owner'] },
+      { ...base, id: 'r4', text: '帮我把 onebot 插件改一下，让消息带时间', tags: ['owner'] },
+      { ...base, id: 'r5', text: '树树喜欢喝冰美式', tags: ['owner'], kind: 'preference' },
+      { ...base, id: 'r6', text: '树树是烟台大学机器人工程专业大二学生', tags: ['owner'], kind: 'event' }
+    ],
+    stats: { added: 5, decayed: 0, forgotten: 0, compacted: 0, lastDecayAt: null },
+    lastDecayDate: null,
+    createdAt: base.createdAt,
+    updatedAt: base.updatedAt
+  }
+  writeFileSync(file, JSON.stringify(legacy, null, 2), 'utf8')
+
+  const back = loadCard(file)
+  eq(back.records.map((r) => r.kind), ['fact', 'event', 'fact', 'event', 'preference', 'fact'], '按判据补 kind（tags fact / first / FACT_RE / 兜底 / 已有值不动 / 被回写成 event 的重新判一次）')
+  eq(back.records.map((r) => r.id), ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'], 'id 不变')
+  eq(back.records.map((r) => r.text), legacy.records.map((r) => r.text), '正文不变、顺序不变')
+  eq(back.records[3].tags, ['owner'], 'tags 没被迁移改动')
+  eq(back.records[0].recallCount, 2, '召回次数没被迁移改动')
+
+  const onDisk = JSON.parse(readFileSync(file, 'utf8'))
+  eq(onDisk.version, 2, '迁移后写回 version: 2（带版本号）')
+  eq(onDisk.records.map((r) => r.kind), ['fact', 'event', 'fact', 'event', 'preference', 'fact'], 'kind 落到文件里')
+  eq(onDisk.records[0].importance, 70, '其它字段原样保留')
+
+  // 幂等：版本号已经对上，第二次加载不该再改写文件
+  const before = readFileSync(file, 'utf8')
+  loadCard(file)
+  eq(readFileSync(file, 'utf8'), before, '第二次加载不再改动文件（幂等）')
+
+  // 已经迁移过的卡（v2 但某条缺 kind）只归一到 event，不按 tags 猜 fact
+  const v2file = join(dir, 'v2.json')
+  writeFileSync(v2file, JSON.stringify({
+    version: 2,
+    scope: 'global',
+    records: [{ ...base, id: 'x1', text: '树树专业是机器人工程，现在大二', tags: ['owner'] }]
+  }, null, 2), 'utf8')
+  eq(loadCard(v2file).records[0].kind, 'event', 'v2 卡缺 kind 时归一到 event（迁移只跑一次）')
 
   rmSync(dir, { recursive: true, force: true })
 }

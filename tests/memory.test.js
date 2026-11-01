@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 记忆引擎测试：node tests/memory.test.js，退出码 0 = 全过。
  *
  * 只测纯函数，不碰 ~/.dsh（存档那一段用系统临时目录）。
@@ -32,6 +32,16 @@ import {
   targetClarity,
   touchRecords
 } from '../lib/memory.js'
+
+/**
+ * 2026-11-01 补：这个文件原来**没有隔离 DSH_HOME**。
+ *
+ * env.js 的 note() 是「调用时才读 DSH_HOME」的，所以这里只要在跑用例之前把它
+ * 指到临时目录就够了。没有这一步的后果是真的：每次跑测试都会往
+ * ~/.dsh/agents/soul.log 里灌一万多字节的「第 N 条普通记忆」「压缩动 N 条」，
+ * 把用户真实的排障日志冲得找不到北。
+ */
+process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-memory-test-'))
 
 let passed = 0
 let failed = 0

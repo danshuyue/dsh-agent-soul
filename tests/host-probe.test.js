@@ -41,11 +41,14 @@ console.log('\n① 正文抽取：三种宿主写法都要认')
   eq(host.firstTextOf(null), '', '空事件不炸')
 }
 
-console.log('\n② 子会话识别：不只认 origin 一个字段')
+console.log('\n② 子会话识别：只认明确的子会话标记')
 {
   eq(host.isSubagentAgent({ session: { header: { origin: 'subagent' } } }), true, 'origin')
-  eq(host.isSubagentAgent({ session: { header: { parentSessionId: 'parent-1' } } }), true, 'parentSessionId')
   eq(host.isSubagentAgent({ session: { header: { agentKind: 'subagent' } } }), true, 'agentKind')
+  // ⚠️ fork 出来的主会话也可能带 parentSessionId。判成子会话 → 整场不注入记忆（静默失忆），
+  // 所以这条判据**故意不认** parentSessionId。
+  eq(host.isSubagentAgent({ session: { header: { parentSessionId: 'parent-1' } } }), false,
+    '只有 parentSessionId 不算子会话（fork 出来的主会话会被误判成失忆）')
   eq(host.isSubagentAgent({ session: { header: { origin: 'user' } } }), false, '普通会话不算')
   eq(host.isSubagentAgent({}), false, '拿不到 header 不算')
 }

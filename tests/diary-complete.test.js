@@ -17,7 +17,7 @@ const HOME = mkdtempSync(join(tmpdir(), 'soul-diary-complete-'))
 process.env.DSH_HOME = HOME
 
 const { diaryIsCompleteFor } = await import('../lib/diary.js')
-const { diaryPublicPath, diaryPrivatePath, ensureDirs } = await import('../lib/paths.js')
+const { diaryPublicPath, diaryPrivatePath, diaryJsonlPath, ensureDirs } = await import('../lib/paths.js')
 
 const DAY = '2026-10-31'
 /** 窗口结束 = 2026-11-01 00:00 本地时间 */
@@ -33,6 +33,12 @@ function writeBoth(pubTime, privTime) {
   if (privTime !== undefined) utimesSync(diaryPrivatePath(DAY), privTime, privTime)
 }
 
+/** 造一条当天某个时刻的对话流水（用来判断"写完那一刻之后还有没有新内容"）。 */
+function writeTalk(at) {
+  ensureDirs()
+  writeFileSync(diaryJsonlPath(DAY), `${JSON.stringify({ t: at, role: 'user', text: 'x', src: 'user' })}\n`, 'utf8')
+}
+
 beforeEach(() => ensureDirs())
 afterEach(() => {
   try { rmSync(join(HOME, 'agents', 'diary'), { recursive: true, force: true }) } catch { /* 忽略 */ }
@@ -44,9 +50,21 @@ describe('diaryIsCompleteFor', () => {
     assert.equal(diaryIsCompleteFor(DAY), true)
   })
 
-  test('两篇都在、但写在当天下午（窗口没闭合）→ 不完整', () => {
+  test('两篇都在、但写在当天下午，且之后又聊到深夜 → 不完整', () => {
+    writeTalk(new Date(2026, 9, 31, 23, 30, 0, 0).getTime())
     writeBoth(INSIDE, INSIDE)
     assert.equal(diaryIsCompleteFor(DAY), false, '半天版本不能被当成写完')
+  })
+
+  test('写在下午，但那之后这一天再没聊过 → 完整（别白重写一遍）', () => {
+    writeTalk(new Date(2026, 9, 31, 13, 0, 0, 0).getTime())
+    writeBoth(INSIDE, INSIDE)
+    assert.equal(diaryIsCompleteFor(DAY), true, '内容已经写全了，重写只会换个说法')
+  })
+
+  test('写在下午、那天一条对话记录都没有 → 不完整（拿不到流水就站严格那边）', () => {
+    writeBoth(INSIDE, INSIDE)
+    assert.equal(diaryIsCompleteFor(DAY), false, '判不准时宁可当没写完 —— 漏写是丢内容，白写只是多花一次调用')
   })
 
   test('公开写在窗口后、私密写在窗口内 → 不完整', () => {

@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build:client": "node tools/build-client.mjs",
-    "test": "node tools/build-client.mjs && node tests/extract.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/diary-new-path.test.js && node tests/memory.test.js && node tests/memory-integrity.test.js && node tests/memory-near-dupe.test.js && node tests/recall-dedupe.test.js && node tests/recall-visibility.test.js && node tests/host-probe.test.js && node tests/secrets-judge.test.js && node tests/recent-context.test.js && node tests/first-turn.test.js && node tests/log-rotate.test.js && node tests/inject.test.js && node tests/sticky.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
+    "test": "node tools/build-client.mjs && node tests/extract.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/diary-new-path.test.js && node tests/memory.test.js && node tests/memory-integrity.test.js && node tests/memory-near-dupe.test.js && node tests/recall-dedupe.test.js && node tests/recall-visibility.test.js && node tests/host-probe.test.js && node tests/secrets-judge.test.js && node tests/tone.test.js && node tests/threads.test.js && node tests/recent-context.test.js && node tests/first-turn.test.js && node tests/log-rotate.test.js && node tests/inject.test.js && node tests/sticky.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/smoke.test.js && node tests/client.test.js",
     "test:extract": "node tests/extract.test.js",
     "test:refine": "node tests/refine.test.js",
     "test:goal": "node tests/goal-revive.test.js",
@@ -47,6 +47,8 @@
     "test:recall-visibility": "node tests/recall-visibility.test.js",
     "test:host": "node tests/host-probe.test.js",
     "test:secrets": "node tests/secrets-judge.test.js",
+    "test:tone": "node tests/tone.test.js",
+    "test:threads": "node tests/threads.test.js",
     "test:recent": "node tests/recent-context.test.js",
     "test:log": "node tests/log-rotate.test.js",
     "test:inject": "node tests/inject.test.js",

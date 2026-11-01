@@ -121,5 +121,54 @@ console.log('\n⑦ 自检必须用「真正在用的那个抽取函数」')
   ok(diverged.checks.some((c) => c.name === '事件正文可解析' && !c.ok), '点名的是同一条')
 }
 
+console.log('\n⑧ 空快照是「未判定」，不是绿（否则新会话会把别人的红灯撤掉）')
+{
+  const r = host.probeHost({ session: { header: { id: 'fresh' }, seq: 0, snapshotEvents: () => [] } })
+  eq(r.ok, null, '未判定')
+  // seq 已经推进了却取不到事件 → 一定是坏了
+  const r2 = host.probeHost({ session: { header: { id: 'stuck' }, seq: 12, snapshotEvents: () => [] } })
+  eq(r2.ok, false, 'seq>0 但快照为空 → 判失败')
+  ok(r2.checks.some((c) => c.name === '事件可取到' && !c.ok), '点名「事件可取到」')
+}
+
+console.log('\n⑨ header.id 改名时要走 session.id 兜底，而不是静默跳过')
+{
+  const r = host.probeHost({ session: { id: 'fallback-id', seq: 1, snapshotEvents: () => [msg('有正文')] } })
+  eq(r.ok, true, '用 session.id 兜底 → 通过')
+  ok(r.checks.some((c) => c.name === 'session.header.id' && c.ok), 'id 那一条判绿（不是死代码）')
+
+  host.__resetHostProbeForTest()
+  const once = host.probeHostOnce({ session: { seq: 1, snapshotEvents: () => [{ type: 'user/message', seq: 1, data: {} }] } })
+  eq(once.ok, false, '连 session.id 都没有也照样自检并报出来')
+}
+
+console.log('\n⑩ 只有注入消息时，真人链路改名必须判失败（漏报要覆盖）')
+{
+  const events = [msg('真人说的话'), msg('运行时注入的话')]
+  const r = host.probeHost(agentWith(events), { classify: () => false })
+  eq(r.ok, false, '有 source.kind=user 的事件却认不出来 → 失败')
+  ok(r.checks.some((c) => c.name === '真人消息可识别' && !c.ok), '点名「真人消息可识别」')
+
+  // 样本里一条真人消息都没有（比如全是注入）→ 不判，免得开假红灯
+  const onlyInjected = [{ type: 'user/message', seq: 1, data: { content: [{ type: 'text', text: 'x' }], source: { kind: 'runtime-context' } } }]
+  eq(host.probeHost(agentWith(onlyInjected), { classify: () => false }).ok, true, '没有真人消息时不下结论')
+}
+
+console.log('\n⑪ 未判定的会话下一轮要再查一次（别一次判完就再也不查）')
+{
+  host.__resetHostProbeForTest()
+  const fresh = { session: { header: { id: 'fresh-again' }, seq: 0, snapshotEvents: () => [] } }
+  eq(host.probeHostOnce(fresh).ok, null, '第一轮：未判定')
+  // seq 推进了、事件也有了 → 第二次必须真的再查一次，而且这次能判绿
+  const later = {
+    session: {
+      header: { id: 'fresh-again' },
+      seq: 3,
+      snapshotEvents: () => [msg('终于有正文了')]
+    }
+  }
+  eq(host.probeHostOnce(later).ok, true, '第二轮：真的又查了一次，通过')
+}
+
 console.log(`\n结果：${pass} 过 / ${fail} 败`)
 process.exit(fail === 0 ? 0 : 1)

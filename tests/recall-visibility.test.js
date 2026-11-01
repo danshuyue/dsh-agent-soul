@@ -71,5 +71,16 @@ console.log('\n④ 真的没有相关记忆时既空、blocked 也为 0（别让
   eq(r.blocked, 0, '不是被挡住，是真的没有')
 }
 
+console.log('\n⑤ 候选池必须严格大于去重窗口（16 条挡光之后仍要有东西）')
+{
+  // 复审指出的问题：池子改成 topK*8 = 16，而调用方的去重窗口也是 16，
+  // 于是第 17 条以后永远摸不到 —— 只是从"想不起来"变成"反复回忆同样 16 条"。
+  const blocked16 = card.records.slice(0, 16).map((r) => r.text)
+  const r = mem.renderRecallOnly(cards, { config: {}, query: QUERY, exclude: new Set(blocked16) })
+  ok(r.text !== '', '挡掉 16 条之后仍然召回到了东西')
+  ok(r.keys.every((k) => !blocked16.includes(k)), '召回到的确实是窗口之外的那几条')
+  eq(r.blocked >= 16, true, `blocked 记下了被挡的条数（${r.blocked}）`)
+}
+
 console.log(`\n结果：${pass} 过 / ${fail} 败`)
 process.exit(fail === 0 ? 0 : 1)

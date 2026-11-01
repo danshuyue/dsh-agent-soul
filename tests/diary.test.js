@@ -90,15 +90,18 @@ console.log('时间工具')
   ok(sm === 22 * 60, `scheduleMinutes('abc') 回退 1320（实际 ${sm}）`)
 }
 
-// diaryDayBoundaries：22:00 分界
+// diaryDayBoundaries：自然日（2026-11-01 起不再用 22:00 分界）
 {
   const { start, end } = diaryDayBoundaries('2026-10-29', 22 * 60)
   const startD = new Date(start)
   const endD = new Date(end)
-  ok(startD.getFullYear() === 2026 && startD.getMonth() === 9 && startD.getDate() === 28, 'start 是前一天')
-  ok(startD.getHours() === 22, `start 在 22 点（实际 ${startD.getHours()}）`)
-  ok(endD.getFullYear() === 2026 && endD.getMonth() === 9 && endD.getDate() === 29, 'end 是当天')
-  ok(endD.getHours() === 22, `end 在 22 点（实际 ${endD.getHours()}）`)
+  ok(startD.getFullYear() === 2026 && startD.getMonth() === 9 && startD.getDate() === 29, 'start 是当天 00:00')
+  ok(startD.getHours() === 0, `start 在 0 点（实际 ${startD.getHours()}）`)
+  ok(endD.getFullYear() === 2026 && endD.getMonth() === 9 && endD.getDate() === 30, 'end 是次日 00:00')
+  ok(endD.getHours() === 0, `end 在 0 点（实际 ${endD.getHours()}）`)
+  // 第二个参数只为兼容保留：传什么值都不该改变结果
+  const alt = diaryDayBoundaries('2026-10-29', 0)
+  ok(alt.start === start && alt.end === end, 'scheduleMinutes 不再影响边界')
 }
 
 // diaryDayBoundaries：坏日期返回 0
@@ -223,7 +226,7 @@ const realEvent = (seq, type, text, kind) => ({
 console.log('对话读取（readDiaryConversations）')
 // ---------------------------------------------------------------------------
 
-// 造两个 JSONL 文件（昨天 + 今天），验证 22:00 分界
+// 造两个 JSONL 文件（昨天 + 今天），验证自然日切分
 {
   ensureDirs()
 
@@ -232,9 +235,8 @@ console.log('对话读取（readDiaryConversations）')
   const todayStr = todayKey(today.getTime())
   const yesterdayStr = todayKey(today.getTime() - 24 * 60 * 60 * 1000)
 
-  // 昨天的 JSONL：22:00 之前（不算今天）+ 22:00 之后（算今天）
-  const yesterday22 = today.getTime() - 2 * 60 * 60 * 1000 // 昨天 22:00
   const yesterday21 = today.getTime() - 3 * 60 * 60 * 1000 // 昨天 21:00
+  const yesterday22 = today.getTime() - 2 * 60 * 60 * 1000 // 昨天 22:00
   writeFileSync(
     diaryJsonlPath(yesterdayStr),
     JSON.stringify({ t: yesterday21, role: 'user', text: '昨天的旧消息', src: 'user' }) + '\n'
@@ -242,22 +244,29 @@ console.log('对话读取（readDiaryConversations）')
     'utf8'
   )
 
-  // 今天的 JSONL：22:00 之前（算今天）+ 22:00 之后（不算今天）
+  const today00 = today.getTime() + 60 * 1000 // 今天 00:01
   const today21 = today.getTime() + 21 * 60 * 60 * 1000 // 今天 21:00
   const today22 = today.getTime() + 22 * 60 * 60 * 1000 // 今天 22:00
   writeFileSync(
     diaryJsonlPath(todayStr),
-    JSON.stringify({ t: today21, role: 'user', text: '今天晚上的消息', src: 'user' }) + '\n'
+    JSON.stringify({ t: today00, role: 'user', text: '今早的消息', src: 'user' }) + '\n'
+    + JSON.stringify({ t: today21, role: 'user', text: '今天晚上的消息', src: 'user' }) + '\n'
     + JSON.stringify({ t: today22, role: 'user', text: '今天十点后的消息', src: 'user' }) + '\n',
     'utf8'
   )
 
   const text = readDiaryConversations(todayStr, 22 * 60)
 
-  ok(text.includes('昨晚十点的消息'), '昨天的 22:00 消息包含在日记日内')
-  ok(text.includes('今天晚上的消息'), '今天的 21:00 消息包含在日记日内')
-  ok(!text.includes('昨天的旧消息'), '昨天的 21:00 消息被排除（在分界线之前）')
-  ok(!text.includes('今天十点后的消息'), '今天的 22:00 消息被排除（在分界线之后）')
+  // 自然日：今天 00:00 ~ 次日 00:00，深夜 22 点当然还在今天里面
+  ok(text.includes('今早的消息'), '今天 00:01 的消息包含在日记日内')
+  ok(text.includes('今天晚上的消息'), '今天 21:00 的消息包含在日记日内')
+  ok(text.includes('今天十点后的消息'), '今天 22:00 的消息也包含（不再按 22 点切）')
+  ok(!text.includes('昨天的旧消息'), '昨天的消息不在今天的日记日里')
+  ok(!text.includes('昨晚十点的消息'), '昨天 22:00 也不会被算进今天')
+
+  // 反过来看昨天那一天：21 点和 22 点两条都在
+  const yText = readDiaryConversations(yesterdayStr, 22 * 60)
+  ok(yText.includes('昨天的旧消息') && yText.includes('昨晚十点的消息'), '昨天的两条都在昨天的日记日内')
 }
 
 // ---------------------------------------------------------------------------
@@ -280,8 +289,10 @@ console.log('补写（findMissingDay）')
   const yesterdayStr = todayKey(today.getTime() - 24 * 60 * 60 * 1000)
   const dayBeforeStr = todayKey(today.getTime() - 2 * 24 * 60 * 60 * 1000)
 
-  // 昨天有日记
+  // 昨天「完整写过」= 两篇都在，且 mtime 都过了当天的窗口闭合（次日 00:00）。
+  // 这里写文件的时间就是现在（今天），自然满足。
   writeFileSync(diaryPrivatePath(yesterdayStr), '【私密】\n2026-10-28\ntest', 'utf8')
+  writeFileSync(diaryPublicPath(yesterdayStr), '【公开】\n2026-10-28\ntest', 'utf8')
   // 前天有对话、没有日记
   writeFileSync(diaryJsonlPath(dayBeforeStr), '{"t":1,"role":"user","text":"x"}\n', 'utf8')
 
@@ -292,6 +303,7 @@ console.log('补写（findMissingDay）')
 
   // 清理
   rmSync(diaryPrivatePath(yesterdayStr))
+  rmSync(diaryPublicPath(yesterdayStr))
   rmSync(diaryJsonlPath(dayBeforeStr))
 }
 

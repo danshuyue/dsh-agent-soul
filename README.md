@@ -380,6 +380,12 @@ grep "\[mood\]"   ~/.dsh/agents/soul.log | tail -5   # 心情合并/读取
 
 **日记内容不像自己**：`diaryPublicTone` / `diaryPrivateTone` 留空时语气全靠模型发挥；写两句具体的（「温暖但克制」「真实、不设防」）比写「好好写」有用得多。
 
+**她突然什么都不记得了**（最阴的一种）：插件读的全是 DSH 的内部字段（事件正文在 `data.content`、`session.snapshotEvents`、`header.origin`）。宿主一升级这些就可能变，而变了**不会报错**——扫描照跑、候选恒 0、日志一句不说。
+
+所以每个会话第一轮会做一次形状自检：`grep "\[host\]"` 有 ⚠️ 就是没通过，同时概览页会亮红，现场留在 `~/.dsh/agents/host-probe.json`。自检的判据是「能不能真的抠出正文」，不是「函数在不在」——上一回事故里函数全都在，只是返回了空串。真发生了就去改 `lib/host.js` 的 `firstTextOf` 和 `lib/extract.js` 的 `messageContentOf`。
+
+**记忆卡读坏了**：原文件会被改名成 `global.json.corrupt-<时间戳>` 留在原地（数据不会蒸发），概览页亮红；只有当改名都失败时才会进入只读模式，这时新的记忆暂时写不进去，但旧文件不会被空卡盖掉。处理完把 `.corrupt-` 那份捡回来人工合并即可。
+
 ---
 
 ## 开发

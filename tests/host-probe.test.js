@@ -170,5 +170,27 @@ console.log('\n⑪ 未判定的会话下一轮要再查一次（别一次判完�
   eq(host.probeHostOnce(later).ok, true, '第二轮：真的又查了一次，通过')
 }
 
+console.log('\n⑫ 快照里没有消息类事件时不能判失败（否则刚重启就假红灯）')
+{
+  // 线上真实发生过：重启后会话只有 4 条非消息事件，自检直接报「正文抠不出来」，
+  // 可真实提取一直是好的。样本里没有消息类事件 = 还没开始聊 = 判不了。
+  const fewNonMessage = [
+    { type: 'session/opened', seq: 1, data: {} },
+    { type: 'runtime/context', seq: 2, data: {} },
+    { type: 'session/ready', seq: 3, data: {} },
+    { type: 'model/selected', seq: 4, data: {} }
+  ]
+  const r = host.probeHost(agentWith(fewNonMessage))
+  eq(r.ok, null, '4 条非消息事件 → 未判定，不是失败')
+  eq(r.checks.some((c) => c.name === '事件正文可解析' && !c.ok), false, '没有开出假红灯')
+
+  // 但样本够大却一条消息类事件都没有 → 那就是 type 改名了，必须报
+  const many = []
+  for (let i = 0; i < 12; i += 1) many.push({ type: 'runtime/context', seq: i + 1, data: {} })
+  const r2 = host.probeHost(agentWith(many))
+  eq(r2.ok, false, '12 条都没有消息类事件 → 判失败')
+  ok(r2.checks.some((c) => c.name === '消息事件存在' && !c.ok), '点名「消息事件存在」')
+}
+
 console.log(`\n结果：${pass} 过 / ${fail} 败`)
 process.exit(fail === 0 ? 0 : 1)

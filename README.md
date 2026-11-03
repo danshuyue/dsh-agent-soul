@@ -427,8 +427,19 @@ grep "\[memory\]" ~/.dsh/agents/soul.log | tail -5   # 衰减/压缩/丢弃了�
 grep "\[diary\]"  ~/.dsh/agents/soul.log | tail -10  # 写没写、跳过原因
 grep "\[mood\]"   ~/.dsh/agents/soul.log | tail -5   # 心情合并/读取/语气注入
 grep "\[host\]"   ~/.dsh/agents/soul.log | tail -5   # 宿主接口形状自检（有 ⚠️ 就是变了）
+grep "\[attest\]" ~/.dsh/agents/soul.log | tail -5   # 装配证词：三段到底进没进最终提示词
 grep "语气注入"    ~/.dsh/agents/soul.log | tail -5   # 心情有没有真的挂到消息上
 ```
+
+**想知道「我到底进没进提示词」**（2026-11-02 加）：`grep "\[attest\]"`，或 `GET /api/soul/attestation`。它读的是 `system-prompt/assemble` **真实返回的上下文清单**，不是插件自己「我返回了文本」的推断——这两件事之间隔着装配、过滤、覆盖三道闸门，前者才算证据。
+
+三种结论：`full` 三段都进去了 / `partial` 少一段（再看是 `blank` 还是 `missing`）/ `absent` 一段都没进。`blank` 是那段返回了空串（多半是配置关了或首轮已过），`missing` 是压根不在清单里（注册/过滤掉了）—— 修法完全不同。
+
+**`partial` 多数时候是正常的，别慌**：人格按设计只在首轮注入、之后每 `PERSONA_REFRESH_TURNS` 轮补一次，记忆在子会话里也返回空串。所以日常大部分轮次本来就是 `partial`。真正要盯的是 `absent`（三段全没了），那才是出事。
+
+`observed: false` 的含义很确切：**观测器自己没跑起来**，不是「没注入」。看门狗死了和它报警是两件事，所以分开报。
+
+顺带它会标 `collapsed: true`：那个会话的 preset 声明了 `complete: true`，内置段被压成了单段。**这对 soul 无伤**——三段走的是 `contexts`，只要 `required: true` 就留得住，跟 `sections` 那条线不是一回事。
 
 **心情语气一条都没挂出来**：① 看 `moodToneInject` 有没有被关 ② 看当前是不是中档（中档故意什么都不加）③ `moodToneEveryTurns` 是几 —— 默认 7，前 7 轮本来就不挂 ④ 阈值设成 20 的话要心情掉到 50 以下才会分档。
 

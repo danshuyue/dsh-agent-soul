@@ -111,8 +111,11 @@ console.log('\n④ 没有密钥时不许假装成功')
 console.log('\n⑤ 判断提示词：压缩后仍保留关键判据')
 {
   const sys = mood.buildJudgeSystem({ self: '糖糖', owner: '树树', aliases: '糖糖、小糖' })
-  ok(sys.length < 1800, `提示词控制在 1800 字内（实际 ${sys.length}）`)
-  ok(sys.includes('别因为「她听话了」就判成好事'), '保留「答应了也算没吃」那条守卫')
+  // 2026-11-03：提示词又加了两条真规则（禁套话 / 别为顺利白涨），
+  // 字数从 1800 涨到 1967。上限跟着放宽到 2400，但**不能无限放** ——
+  // 这段每轮都会塞进判断请求里，膨胀就是按轮收费。
+  ok(sys.length < 2400, `提示词控制在 2400 字内（实际 ${sys.length}）`)
+  ok(sys.includes('别因为「答应了」就判成好事'), '保留「答应了也算没吃」那条守卫')
   ok(sys.includes('moodDelta **负**') && sys.includes('moodDelta **正**'), '正负号写死在幅度表里')
   ok(sys.includes('代词一律不用'), '保留代词规则')
   ok(sys.includes('两段式、全过去式'), '保留 reason 时态规则')

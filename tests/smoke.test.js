@@ -134,28 +134,56 @@ console.log('心情语气：真的能经 soul:memory 的 text() 走到投递（2
   store.saveMoodState('', moodFile)
 
   const sent = []
+  // seq 必须放在 session 顶层（宿主就是这么放的，eventsSince / maxSeqOf 都读它）。
+  // 之前误写进 header 里，于是 memoPerStep 读不到 seq、不加缓存，
+  // 「每步调两次」的副作用翻倍问题被测试掩盖了（2026-11-04 修 B13.2）。
+  const session = {
+    header: { id: 'tone-session', cwd: '' },
+    seq: 3,
+    firstLiveSeq: 0,
+    snapshotEvents: () => []
+  }
   const agent = {
-    session: {
-      header: { id: 'tone-session', cwd: '', seq: 3, firstLiveSeq: 0 },
-      snapshotEvents: () => []
-    },
-    inbox: { append: (message) => { sent.push(message) } }
+    session,
+    // 宿主签名是 append(target, message) —— 两个参数。
+    // 之前这里写成收一个参数，正好掩盖了「只传一个对象」那个 bug（2026-11-04 二次修）。
+    inbox: { append: (target, message) => { sent.push({ target, message }) } }
   }
   const memorySegment = ctx.__contextSegments.find((x) => x.name === 'soul:memory')
   ok(memorySegment !== undefined, '找到 soul:memory 段')
 
-  // every 默认 7：pending 从 0 累到 7 要 8 轮才发一条
-  for (let i = 0; i < 8; i += 1) memorySegment.text({ agent })
+  // every 默认 7：pending 从 0 累到 7 要 8 轮才发一条。
+  // 每轮 seq 都要涨 —— 否则同一个 seq 会被 memoPerStep 当成「同一步的重复装配」缓存掉。
+  for (let i = 0; i < 8; i += 1) {
+    session.seq = 3 + i
+    memorySegment.text({ agent })
+  }
 
   eq(sent.length >= 1, true, '连跑 8 轮后投出了一条语气消息（改之前一条都投不出来）')
-  eq(sent[0]?.source?.kind, 'soul-tone', '消息来源标记为 soul-tone')
-  eq(typeof sent[0]?.id, 'string', '消息带了 id（inbox 需要）')
+  // 这三条就是 B13.1「语气投递的形状」：只测 takeTone 纯函数会漏掉参数个数和 target
+  eq(sent[0]?.target, 'next-step', 'target 是 next-step（本轮可见；用 next-turn 会凭空唤醒一轮）')
+  eq(sent[0]?.message?.source?.kind, 'soul-tone', '消息来源标记为 soul-tone')
+  eq(typeof sent[0]?.message?.id, 'string', '消息带了 id（inbox 需要）')
+  eq(Array.isArray(sent[0]?.message?.content), true, '消息带 content 数组（宿主会读 content.length）')
 
   const logText = existsSync(join(sandbox, 'agents', 'soul.log'))
     ? readFileSync(join(sandbox, 'agents', 'soul.log'), 'utf8')
     : ''
   ok(logText.includes('语气注入'), '日志里留下了「语气注入：low」')
   ok(!logText.includes('读心情失败'), '没有「读心情失败」（说明 moodState 这次真的导入成功了）')
+
+  // B1 / B13.2：同一个 step 内宿主会把 text() 调两次（preStep 的 assemble +
+  // step 里每个 attempt 的 refreshContext）。两次必须拿到逐字节相同的段落，
+  // 否则宿主认为快照变了会重投；副作用也不能算两遍。
+  session.seq = 500
+  const firstAssemble = memorySegment.text({ agent })
+  const secondAssemble = memorySegment.text({ agent })
+  eq(firstAssemble, secondAssemble, '同一个 step 内两次装配 → 段落逐字节相同（B1）')
+
+  // seq 涨了就该重新算（新消息进来了，内容允许变）
+  session.seq = 501
+  const nextStep = memorySegment.text({ agent })
+  eq(typeof nextStep, 'string', 'seq 变了之后重新计算，不返回旧缓存')
 
   tone.__resetToneForTest()
   store.resetMood('')

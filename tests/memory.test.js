@@ -436,5 +436,90 @@ console.log('\n压缩遇到认不出的清晰度要跳过而不是删（2026-11-
   eq(card.records.some((r) => r.id === 'dirty-unknown'), true, '认不出的那条被保留（不替用户删数据）')
 }
 
+console.log('\nforgotten 不该吃掉压缩配额（2026-11-04 修 B5 另一半）：')
+{
+  // sectionize 会跳过 forgotten，它们在注入里一个字符都不占。
+  // 但它们原先也进了 candidates、还排在最前，于是每轮压缩先删它们：
+  // 删掉不省字符，却照样消耗「单次最多动 N 条」的配额 —— 一次压缩零收益。
+  const cfg = normalizeConfig({})
+  const card = createCard('global')
+  for (let i = 0; i < 20; i += 1) {
+    addRecord(card, {
+      text: `看得见的一条${'啊'.repeat(40)}`, isOwner: true, isPrivate: true, importance: 50, kind: 'event'
+    }, cfg, Date.now() - i * 3600_000)
+  }
+  for (let i = 0; i < 40; i += 1) {
+    card.records.push({
+      id: `fg-${i}`, text: `看不见的一条${'啊'.repeat(40)}`, clarity: 'forgotten',
+      importance: 10, kind: 'event', tags: [], createdAt: Date.now(), lastSeenAt: Date.now(), recallCount: 0
+    })
+  }
+
+  const visibleBefore = card.records.filter((r) => r.clarity !== 'forgotten').length
+  const steps = compactCard(card, cfg, { now: Date.now() })
+
+  eq(card.records.filter((r) => r.clarity === 'forgotten').length, 0, 'forgotten 全被清掉')
+  eq(card.records.length, visibleBefore, '可见记录一条没少（forgotten 没有白吃配额）')
+  // 返回值必须 > 0：maintain 只在 > 0 时 saveCard（store.js:560）。
+  // 返回 0 的话这批删除只改了内存、没落盘 —— 重启后 forgotten 回来，
+  // 每次启动又往 archive.jsonl 写一遍（档案会重复膨胀）。
+  ok(steps > 0, `返回值 > 0（实际 ${steps}），否则调用方不会存盘`)
+  eq(steps, 40, '返回值 = 清理掉的 forgotten 条数')
+}
+
+console.log('\n整卡都钉住时，清理也必须报出去（2026-11-04 第二次修）：')
+{
+  // 这卡里没有一条能进 candidates（全 pinned / 初始 / 主人重要），
+  // 但躺着 10 条 forgotten。原来的 `if (candidates.length === 0) return 0`
+  // 会把「刚删掉 10 条」这件事吞掉 —— 调用方不存盘，磁盘上原样还在，
+  // 重启后又删一遍、又归档一遍（档案重复膨胀，删除白做）。
+  const cfg = normalizeConfig({})
+  const card = createCard('global')
+  for (let i = 0; i < 12; i += 1) {
+    card.records.push({
+      id: `pin-${i}`, text: `钉住的一条${'啊'.repeat(20)}`, clarity: 'vivid', pinned: true,
+      importance: 80, kind: 'preference', tags: ['owner'], createdAt: Date.now() - i * 3600_000,
+      lastSeenAt: Date.now(), recallCount: 0
+    })
+  }
+  for (let i = 0; i < 10; i += 1) {
+    card.records.push({
+      id: `fg2-${i}`, text: `看不见的一条${'啊'.repeat(20)}`, clarity: 'forgotten',
+      importance: 10, kind: 'event', tags: [], createdAt: Date.now(), lastSeenAt: Date.now(), recallCount: 0
+    })
+  }
+
+  const steps = compactCard(card, cfg, { now: Date.now() })
+
+  eq(card.records.filter((r) => r.clarity === 'forgotten').length, 0, 'forgotten 全被清掉')
+  eq(card.records.length, 12, '钉住的 12 条一条没少')
+  ok(steps >= 10, `返回值要带出清理数（实际 ${steps}），否则调用方不会存盘`)
+}
+
+console.log('\n降级落卡是安全的（B3 的前提，2026-11-04 核）：')
+{
+  // 提炼失败时把候选原话直存 —— 这条路的安全性完全取决于 ingestCandidates 里的闸。
+  // 这里验证三件事：
+  //   ① 任务/进度类原话被 reject 闸挡掉（不会进卡）
+  //   ② 带人物属性的原话会被升成 fact，门槛 70 → 42，所以「不吃辣」这种能留下
+  //   ③ 降级不是「全丢」，也不是「全收」
+  const { ingestCandidates } = await import('../lib/extract.js')
+  const cfg = normalizeConfig({})
+  const card = createCard('global')
+
+  const written = ingestCandidates(card, addRecord, [
+    // 人物属性 + 祈使句：looksPersonal 命中 → 升 fact → 门槛 42
+    { text: '帮我记住我不吃辣', isOwner: true, kind: 'event', scored: { importance: 52 } },
+    // 进度类：被 autoMemoryRejectReason 整条挡掉
+    { text: '下一步要把日记的形状改回来', isOwner: true, kind: 'event', scored: { importance: 80 } }
+  ], cfg, Date.now())
+
+  eq(written, 1, '两条候选只留下一条（progress 类被拒，人物原话留下）')
+  ok(card.records.some((r) => String(r.text).includes('不吃辣')), '「帮我记住我不吃辣」进了卡')
+  ok(!card.records.some((r) => String(r.text).includes('下一步要')), '「下一步要把…」被挡在门外')
+  const kept = card.records.find((r) => String(r.text).includes('不吃辣'))
+  eq(kept?.kind, 'fact', '它是以 fact 身份进去的（门槛 42 而不是 event 的 70）')
+}
+
 console.log(`\n结果：${passed} 过 / ${failed} 败`)
 process.exit(failed === 0 ? 0 : 1)

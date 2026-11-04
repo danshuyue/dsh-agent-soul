@@ -199,6 +199,45 @@ console.log('\n索引与目录不一致（索引只是缓存，md 才是真相�
   ok(changed[0].summary.includes('换了一整段'), '手动改过的正文，摘要会重新算')
 }
 
+console.log('\n读失败不能把这篇从索引里删掉（2026-11-04 修 B11）：')
+{
+  // 用一个「同名目录」冒充 .md 文件：readdirSync 会把它列出来（名字以 .md 结尾），
+  // 而 readText 读目录会抛 EISDIR —— 正好模拟「文件在、但这一瞬间读不出来」。
+  reset()
+  writeNote({ title: '正常的一篇', content: '正文' })
+  mkdirSync(notePath('读不出来的'), { recursive: true })
+  __resetNotesCacheForTest()
+
+  const list = listNotes()
+  ok(list.some((n) => n.slug === '正常的一篇'), '正常那篇还在')
+  ok(list.some((n) => n.slug === '读不出来的'), '读失败那篇没有被从索引里剔除（原来的 continue 会让它消失）')
+
+  rmSync(notePath('读不出来的'), { recursive: true, force: true })
+  __resetNotesCacheForTest()
+}
+
+console.log('\n读失败的占位要能重试（2026-11-04 修新④）：')
+{
+  reset()
+  writeNote({ title: '正常的一篇', content: 'x' })
+  mkdirSync(notePath('坏掉的'), { recursive: true })
+  __resetNotesCacheForTest()
+  listNotes()
+
+  const idx = JSON.parse(readFileSync(notesIndexPath(), 'utf8'))
+  const stub = idx.notes.find((n) => n.slug === '坏掉的')
+  ok(stub !== undefined && stub.retry === true, '读失败写下的占位带 retry 标记')
+  eq(stub?.chars, 0, '占位字数是 0')
+
+  // 修好文件系统：换成真文件，应该被重新读进来（不能一直卡在 0 字）
+  rmSync(notePath('坏掉的'), { recursive: true, force: true })
+  writeFileSync(notePath('坏掉的'), '现在能读了', 'utf8')
+  __resetNotesCacheForTest()
+  const after = listNotes().find((n) => n.slug === '坏掉的')
+  ok(after !== undefined && after.chars > 0, '文件修好后重新读进来（不再是 0 字的桩）')
+  eq(after?.retry, undefined, '读成功后不再带 retry 标记')
+}
+
 console.log('\n注入渲染（Inline & Spill：只给索引，正文留在窗口外）：')
 {
   reset()

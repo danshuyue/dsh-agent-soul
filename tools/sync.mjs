@@ -45,6 +45,15 @@ function atomicCopy(from, to) {
   renameSync(tmp, to)
 }
 
+/**
+ * 递归同步一个目录。
+ *
+ * 2026-11-04 修：原来这里只处理**第一层文件**（`if (!statSync(...).isFile()) continue`
+ * 把子目录整个跳过了）。于是 `lib/client/` 那一堆前端片段从来没有被同步过 ——
+ * 运行时靠的是打包产物 `lib/client.js`（在 lib 顶层，所以功能看起来没问题），
+ * 但源码副本一直是旧的，改完 `client/xxx.js` 查副本会以为没保存。
+ * 这个坑踩了两次，直接改成递归。
+ */
 function syncDir(name) {
   const from = join(SRC, name)
   if (!existsSync(from)) return { added: 0, updated: 0 }
@@ -53,15 +62,25 @@ function syncDir(name) {
 
   let added = 0
   let updated = 0
-  for (const entry of readdirSync(from)) {
-    const srcFile = join(from, entry)
-    if (!statSync(srcFile).isFile()) continue
-    const dstFile = join(to, entry)
-    const existed = existsSync(dstFile)
-    if (!dry) atomicCopy(srcFile, dstFile)
-    if (existed) updated += 1
-    else added += 1
+
+  const walk = (srcDir, dstDir) => {
+    for (const entry of readdirSync(srcDir, { withFileTypes: true })) {
+      const srcPath = join(srcDir, entry.name)
+      const dstPath = join(dstDir, entry.name)
+      if (entry.isDirectory()) {
+        if (!dry) mkdirSync(dstPath, { recursive: true })
+        walk(srcPath, dstPath)
+        continue
+      }
+      if (!entry.isFile()) continue
+      const existed = existsSync(dstPath)
+      if (!dry) atomicCopy(srcPath, dstPath)
+      if (existed) updated += 1
+      else added += 1
+    }
   }
+
+  walk(from, to)
   return { added, updated }
 }
 

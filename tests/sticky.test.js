@@ -82,15 +82,28 @@ function cardOf(scope, specs) {
  * 假 agent：事件放在一个可变盒子里，测试中途能整批换掉（模拟「这一轮只有注入」）。
  * seq 取最后一条事件的 seq，跟真 DSH 的 session.seq 口径一致。
  */
-function makeAgent(id, box) {
+/**
+ * @param {number} seqOffset 给 seq 加个偏移。
+ *   2026-11-04：soul:memory 加了「每步只算一次」的缓存，键是 (sessionId, seq)。
+ *   测试里用同一个 id 造新 agent、而新 box 的事件数恰好跟旧的一样时 seq 会重复，
+ *   于是命中缓存、拿回上一次的文本 —— 真实宿主里同一个会话的 seq 只增不减，
+ *   所以这里要显式错开，才能模拟「又过了一轮」。
+ */
+function makeAgent(id, box, seqOffset = 0) {
   return {
     session: {
       header: { id, cwd: '' },
       firstLiveSeq: 0,
       get seq() {
-        return box.events.length === 0 ? 0 : box.events[box.events.length - 1].seq
+        const base = box.events.length === 0 ? 0 : box.events[box.events.length - 1].seq
+        return base + seqOffset
       },
-      snapshotEvents: (from, to) => box.events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+      // 无参要给全部：turnKeyOf 靠它找「最后一条 assistant 消息」定轮次。
+      // 只写 (from, to) 的话无参时 from 是 undefined、比较恒假 → 轮次永远 -1 → 全命中缓存。
+      snapshotEvents: (from, to) => {
+        if (from === undefined) return box.events.slice()
+        return box.events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+      }
     }
   }
 }
@@ -204,7 +217,11 @@ console.log('⑤ 状态表上限 + 不串会话（2026-10-30）')
   eq(stats.size <= stats.max, true, `状态表不超过上限（${stats.size} / ${stats.max}）`)
 
   // A 已被淘汰（40 个填充会话足够把它挤出去）：同一个 query 再问，必须重新按自己的卡算
-  const again = textOf(makeAgent('session-sticky-lru-a', talkingBox('聊技术', '冰美式还是不加糖吧')))
+  // 轮次键看的是「最后一条 assistant 消息的 seq」。这里要模拟「过了很多轮之后回来问」，
+  // 所以把新 box 的 seq 整体推远 —— 只改 session.seq 没用（那个已经不参与判定）。
+  const boxB = talkingBox('聊技术', '冰美式还是不加糖吧')
+  boxB.events = boxB.events.map((e) => ({ ...e, seq: e.seq + 20_000 }))
+  const again = textOf(makeAgent('session-sticky-lru-a', boxB))
   ok(again !== textBlue, '淘汰后不再拿旧文本，而是重新算了一次')
   ok(again.includes('冰美式'), '重算贴的是这一轮的话题')
 

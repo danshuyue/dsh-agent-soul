@@ -134,14 +134,17 @@ console.log('心情语气：真的能经 soul:memory 的 text() 走到投递（2
   store.saveMoodState('', moodFile)
 
   const sent = []
-  // seq 必须放在 session 顶层（宿主就是这么放的，eventsSince / maxSeqOf 都读它）。
-  // 之前误写进 header 里，于是 memoPerStep 读不到 seq、不加缓存，
-  // 「每步调两次」的副作用翻倍问题被测试掩盖了（2026-11-04 修 B13.2）。
+  // 会话结构要跟宿主一致：seq 在 session 顶层，snapshotEvents() 无参返回全部事件
+  // （turnKeyOf 就是这么调的 —— 上一版 fake 无参返回空数组，缓存键永远拿不到轮次）。
+  const events = []
   const session = {
     header: { id: 'tone-session', cwd: '' },
     seq: 3,
     firstLiveSeq: 0,
-    snapshotEvents: () => []
+    snapshotEvents: (from, to) => {
+      if (from === undefined) return events.slice()
+      return events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+    }
   }
   const agent = {
     session,
@@ -153,10 +156,14 @@ console.log('心情语气：真的能经 soul:memory 的 text() 走到投递（2
   ok(memorySegment !== undefined, '找到 soul:memory 段')
 
   // every 默认 7：pending 从 0 累到 7 要 8 轮才发一条。
-  // 每轮 seq 都要涨 —— 否则同一个 seq 会被 memoPerStep 当成「同一步的重复装配」缓存掉。
+  // 「一轮」的边界是**她说过话了**（最后一条 assistant 消息变了），
+  // 不是 seq 变了 —— 宿主会在同一 step 内写 step/start，seq 根本不稳。
   for (let i = 0; i < 8; i += 1) {
-    session.seq = 3 + i
+    // 每轮先有人说话：语气只在「本 turn 有真人输入」时才投（空轮不投）
+    events.push({ seq: 200 + i * 2, type: 'user/message', payload: { content: [{ type: 'text', text: `第 ${i} 句` }] } })
     memorySegment.text({ agent })
+    // 说完这一轮，轮次边界才推进
+    events.push({ seq: 201 + i * 2, type: 'assistant/message', payload: { content: [{ type: 'text', text: `第 ${i} 轮回复` }] } })
   }
 
   eq(sent.length >= 1, true, '连跑 8 轮后投出了一条语气消息（改之前一条都投不出来）')
@@ -165,6 +172,9 @@ console.log('心情语气：真的能经 soul:memory 的 text() 走到投递（2
   eq(sent[0]?.message?.source?.kind, 'soul-tone', '消息来源标记为 soul-tone')
   eq(typeof sent[0]?.message?.id, 'string', '消息带了 id（inbox 需要）')
   eq(Array.isArray(sent[0]?.message?.content), true, '消息带 content 数组（宿主会读 content.length）')
+  // 2026-11-04 线上事故的守卫：字段名是 role 不是 type。
+  // 写成 type 的话宿主序列化 messages 时会报 missing field `role`，整轮对话 500。
+  eq(sent[0]?.message?.role, 'user', '消息体带 role 字段（写成 type 会让整轮请求 500）')
 
   const logText = existsSync(join(sandbox, 'agents', 'soul.log'))
     ? readFileSync(join(sandbox, 'agents', 'soul.log'), 'utf8')
@@ -172,18 +182,55 @@ console.log('心情语气：真的能经 soul:memory 的 text() 走到投递（2
   ok(logText.includes('语气注入'), '日志里留下了「语气注入：low」')
   ok(!logText.includes('读心情失败'), '没有「读心情失败」（说明 moodState 这次真的导入成功了）')
 
-  // B1 / B13.2：同一个 step 内宿主会把 text() 调两次（preStep 的 assemble +
-  // step 里每个 attempt 的 refreshContext）。两次必须拿到逐字节相同的段落，
-  // 否则宿主认为快照变了会重投；副作用也不能算两遍。
-  session.seq = 500
+  // B1：同一个 step 内宿主会把 text() 调两次（preStep 的 assemble +
+  // step 里每个 attempt 的 refreshContext）。两次必须拿到逐字节相同的段落。
   const firstAssemble = memorySegment.text({ agent })
   const secondAssemble = memorySegment.text({ agent })
   eq(firstAssemble, secondAssemble, '同一个 step 内两次装配 → 段落逐字节相同（B1）')
 
-  // seq 涨了就该重新算（新消息进来了，内容允许变）
-  session.seq = 501
-  const nextStep = memorySegment.text({ agent })
-  eq(typeof nextStep, 'string', 'seq 变了之后重新计算，不返回旧缓存')
+  // 这条是 2026-11-04 三次修的核心：宿主在 assemble 与 refreshContext 之间会写
+  // step/start（agent-loop.js:970），seq 必变。缓存键要是看 seq，这里就会重算 ——
+  // 副作用翻倍、语气节流实际变成 every/2。所以断言的正是「seq 变了也不许重算」。
+  events.push({ seq: 900, type: 'step/start', data: {} })
+  session.seq = 900
+  const afterStepStart = memorySegment.text({ agent })
+  eq(afterStepStart, secondAssemble, 'step/start 写了新事件、seq 变了，段落仍然逐字节相同')
+
+  // 她真的回了话 → 轮次边界推进 → 允许重算
+  events.push({ seq: 901, type: 'assistant/message', payload: { content: [{ type: 'text', text: '新的回复' }] } })
+  const nextRound = memorySegment.text({ agent })
+  eq(typeof nextRound, 'string', '她说过话之后重新计算（新的一轮）')
+
+  // 空轮：本轮只有注入消息（没有真人说过话）→ 不投语气。
+  // 否则那条 user 消息就是「一条只有心情的空消息」，模型可能会顺着它回话。
+  {
+    const emptyEvents = []
+    const emptySession = {
+      header: { id: 'tone-empty', cwd: '' },
+      seq: 10,
+      firstLiveSeq: 0,
+      snapshotEvents: (from, to) => {
+        if (from === undefined) return emptyEvents.slice()
+        return emptyEvents.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+      }
+    }
+    const emptySent = []
+    const emptyAgent = { session: emptySession, inbox: { append: (t, m) => emptySent.push(t) } }
+
+    tone.__resetToneForTest()
+    store.resetMood('')
+    const mood2 = store.resetMood('')
+    mood2.mood = 60
+    store.saveMoodState('', mood2)
+
+    for (let i = 0; i < 12; i += 1) {
+      // 只有宿主注入的 runtime-context，没有真人说话
+      emptyEvents.push({ seq: 300 + i * 2, type: 'user/message', payload: { content: [{ type: 'text', text: 'context' }], source: { kind: 'runtime-context' } } })
+      memorySegment.text({ agent: emptyAgent })
+      emptyEvents.push({ seq: 301 + i * 2, type: 'assistant/message', payload: { content: [{ type: 'text', text: '嗯' }] } })
+    }
+    eq(emptySent.length, 0, '空轮（只有注入消息）连跑 12 轮也不投语气')
+  }
 
   tone.__resetToneForTest()
   store.resetMood('')
@@ -204,7 +251,13 @@ console.log('关掉记忆不能连带停掉日记素材（2026-11-04 修 ③）�
     header: { id: 'diary-material-test', cwd: '' },
     seq: 3,
     firstLiveSeq: 0,
-    snapshotEvents: (from, to) => events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+    // 无参调用要返回全部事件：turnKeyOf 就是这么取「她最后说了什么」的。
+    // 只写 (from, to) 的话，无参时 from 是 undefined，比较恒假 —— 轮次标识永远是 -1，
+    // 于是同一会话的所有装配都命中缓存（这个坑在语气测试里也踩过一次）。
+    snapshotEvents: (from, to) => {
+      if (from === undefined) return events.slice()
+      return events.filter((e) => e.seq >= from && (to === undefined || e.seq < to))
+    }
   }
   const agent = { session, inbox: { append: () => {} } }
   const memorySegment = ctx.__contextSegments.find((x) => x.name === 'soul:memory')
@@ -212,15 +265,21 @@ console.log('关掉记忆不能连带停掉日记素材（2026-11-04 修 ③）�
   // 第一次只把游标推到当前位置（design：不回扫历史）
   memorySegment.text({ agent })
 
+  // 先补一条她上一轮的回复：两次 text() 之间必须存在轮次边界，
+  // 否则它们落在同一个 turn 里会被 memoPerStep 缓存住（同一轮只算一次，设计如此），
+  // 收集逻辑根本轮不到执行。
+  events.push({ seq: 3, type: 'assistant/message', payload: { content: [{ type: 'text', text: '上一轮的回复' }] } })
   // 之后来了一条真人消息
   // 事件必须带 payload.content —— collectForDiary 通过 messageContentOf(event) 取正文，
   // 只写 event.content 是取不到的（那是另一个字段）
   events.push({ seq: 4, type: 'user/message', payload: { content: [{ type: 'text', text: '今天把日记改成让我自己写了' }] } })
   session.seq = 4
-  memorySegment.text({ agent })
+  const r2 = memorySegment.text({ agent })
+  const { serviceOf } = await import('../lib/env.js')
 
   const file = paths.diaryJsonlPath(diary.todayKey(Date.now()))
   const collected = existsSync(file) ? readFileSync(file, 'utf8') : ''
+  
   ok(collected.includes('日记改成让我自己写'), 'memoryEnabled=false 时对话仍然被收进 JSONL')
   eq(memorySegment.text({ agent }), '', '同一轮记忆段返回空串（记忆确实没注入）')
 

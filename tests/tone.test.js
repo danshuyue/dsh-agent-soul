@@ -142,5 +142,27 @@ console.log('\n⑧ 心情消息不会污染记忆提取')
   eq(extract.isHumanEvent(humanEvent), true, '真人消息不受影响')
 }
 
+console.log('\n节流下限与来源判定（2026-11-04 修 A1 自持循环 / 新②）：')
+{
+  // every 下限从 1 抬到 2：语气是往 next-step 投消息，claim 在下一个 step 才取走，
+  // 那个 step 本身就是「多出来的一次请求」。every=1 会让每步都投 → 每步都催生下一步。
+  // 计数器语义：pending 从 0 开始、每次 +1，累到 every 之后的下一次才发。
+  // 也就是 every=2 → 第 1、2 次不发，第 3 次发。
+  tone.__resetToneForTest()
+  eq(tone.takeTone('s-every', 'low', { moodToneEveryTurns: 1 }).emit, false, 'every=1 被抬成 2：第 1 次不发')
+  eq(tone.takeTone('s-every', 'low', { moodToneEveryTurns: 1 }).emit, false, '第 2 次仍不发')
+  eq(tone.takeTone('s-every', 'low', { moodToneEveryTurns: 1 }).emit, true, '第 3 次才发（不再是每轮都投）')
+
+  tone.__resetToneForTest()
+  eq(tone.takeTone('s-2', 'low', { moodToneEveryTurns: 2 }).emit, false, '显式 every=2：第 1 次不发')
+  eq(tone.takeTone('s-2', 'low', { moodToneEveryTurns: 2 }).emit, false, 'every=2：第 2 次不发')
+  eq(tone.takeTone('s-2', 'low', { moodToneEveryTurns: 2 }).emit, true, 'every=2：第 3 次发')
+
+  // soul-tone 必须算机器来源，否则下一轮判心情会拿自己的心情注解除判自己的心情
+  const { isMachineSource } = await import('../lib/mood.js')
+  eq(isMachineSource('soul-tone'), true, 'soul-tone 被判为机器来源（不参与心情判定）')
+  eq(isMachineSource('user'), false, 'user 仍然是人的来源')
+}
+
 console.log(`\n结果：${pass} 过 / ${fail} 败`)
 process.exit(fail === 0 ? 0 : 1)

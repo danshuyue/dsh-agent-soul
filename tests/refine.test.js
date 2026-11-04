@@ -9,7 +9,17 @@
  *   2. 模型输出乱一点也能解析（markdown 包裹、前后带废话、只给单个对象）
  *   3. 任何失败都返回 null —— 调用方据此退回原话直存，不许丢信息
  */
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { buildRefineSystem, buildRefineUser, parseRefined, refineCandidates } from '../lib/refine.js'
+
+// 2026-11-04 修 ③：提炼失败日志现在由 refine.js 自己写（env.js 的共用分频器），
+// 不再是调用方传进来的 note。测试里必须把它引到临时目录 ——
+// 否则跑一次测试就往用户真正的 ~/.dsh/agents/soul.log 里写几行"提炼失败"，
+// 以后查日志会以为线上真出过事。
+const HOME = mkdtempSync(join(tmpdir(), 'soul-refine-test-'))
+process.env.DSH_HOME = HOME
 
 let passed = 0
 let failed = 0
@@ -151,6 +161,8 @@ console.log('\n[4] 主人在场但不给 owner 也能跑')
   )
   eq(fallback.length, 1, '没传 owner 用默认称呼')
 }
+
+rmSync(HOME, { recursive: true, force: true })
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)
 process.exit(failed === 0 ? 0 : 1)

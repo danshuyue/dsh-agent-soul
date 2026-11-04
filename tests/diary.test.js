@@ -8,7 +8,6 @@
  *   ④ 补写：findMissingDay（未写过日记不补、没对话的日子不补）
  *   ⑤ 触发消息：composePublicMessage / composePrivateMessage（公开那条绝不能带私密历史）
  *   ⑥ 等待落盘：waitForWrite
- *   ⑦ 清理：cleanupOldJsonl
  *
  * 用例里的事件形状全部照真机来：user 正文在 data.content，
  * assistant 正文在 data.message.content（多一层 message）。
@@ -45,7 +44,6 @@ const {
   composePublicMessage,
   composePrivateMessage,
   waitForWrite,
-  cleanupOldJsonl,
   readRecentDiaries,
   resetDiaryCursor,
   diaryAgent
@@ -448,27 +446,6 @@ console.log('最近日记（readRecentDiaries）')
   // 清理
   rmSync(diaryPublicPath(yesterdayStr))
   rmSync(diaryPrivatePath(yesterdayStr))
-}
-
-// ---------------------------------------------------------------------------
-console.log('清理（cleanupOldJsonl）')
-// ---------------------------------------------------------------------------
-
-{
-  ensureDirs()
-  const old = new Date()
-  old.setDate(old.getDate() - 10) // 10 天前
-  const oldKey = todayKey(old.getTime())
-  const recentKey = todayKey()
-
-  writeFileSync(diaryJsonlPath(oldKey), 'old data\n', 'utf8')
-  writeFileSync(diaryJsonlPath(recentKey), 'recent data\n', 'utf8')
-
-  const deleted = cleanupOldJsonl(5) // 保留 5 天
-
-  ok(deleted >= 1, `删除了旧文件（实际 ${deleted}）`)
-  ok(!exists(diaryJsonlPath(oldKey)), '旧 JSONL 已删除')
-  ok(exists(diaryJsonlPath(recentKey)), '新 JSONL 保留')
 }
 
 // ---------------------------------------------------------------------------

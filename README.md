@@ -481,7 +481,6 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 | `diaryPrivateMoodMoments` | `6` | 私密日记带几条 |
 | `diarySummarizeProvider` / `diarySummarizeModel` | `""` | 生成用的模型（空 = 跟随会话模型） |
 | `diarySummarizeTimeoutMs` | `30000` | 生成调用超时 |
-| `diaryJsonlKeepDays` | `7` | 对话 JSONL 保留天数 |
 
 记忆引擎参数（衰减天数、阈值、压缩）在 `lib/memory.js` 的 `DEFAULTS`，全部有注释说明为什么是这个值。
 
@@ -501,6 +500,9 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 <DSH_HOME>/agents/memory/archive.jsonl           遗忘档案（append-only）
 <DSH_HOME>/agents/mood/global.json               心情状态（全局一份）
 <DSH_HOME>/agents/diary/conversations/YYYY-MM-DD.jsonl  当天对话流水（所有会话汇总）
+
+
+> 对话流水**不再自动清理**（2026-11-04 起）。它是日记和补写的唯一素材来源，删掉以后那一天就永远补不回来。体积靠归档/压缩处理，不靠删。
 <DSH_HOME>/agents/diary/public/YYYY-MM-DD.md     公开日记
 <DSH_HOME>/agents/diary/private/YYYY-MM-DD.md    私密日记（明文，靠提示词区分）
 <DSH_HOME>/agents/diary/threads.json              日记连续线（还悬着的事）

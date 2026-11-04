@@ -388,5 +388,53 @@ console.log('老记录 kind 迁移（v1 → v2，2026-10-30）')
   rmSync(dir, { recursive: true, force: true })
 }
 
+console.log('\n压缩不会卡死（2026-11-04）：')
+{
+  // 原实现里 while 只在 clarity==='trace' 时退出，而 stepDown 对 'forgotten'
+  // 返回 true 却不改值 → chars 不减、clarity 不变 → 死循环。
+  // compactCard 在注入路径上同步跑，卡住就是整个会话卡住。
+  const cfg = normalizeConfig({})
+  const card = createCard('global')
+  for (let i = 0; i < 401; i += 1) {
+    addRecord(card, {
+      text: `第 ${i} 条随便记的东西，长度凑一凑让预算撑爆${'啊'.repeat(30)}`,
+      isOwner: true, isPrivate: true, importance: 50, kind: 'event'
+    }, cfg, Date.now() - i * 3600_000)
+  }
+  card.records.push({
+    id: 'dirty-forgotten', text: '这条是遗忘状态的脏数据', clarity: 'forgotten',
+    importance: 10, kind: 'event', tags: [], createdAt: Date.now(), lastSeenAt: Date.now(), recallCount: 0
+  })
+
+  const started = Date.now()
+  const steps = compactCard(card, cfg, { now: Date.now() })
+  const elapsed = Date.now() - started
+
+  ok(elapsed < 5000, `401 条 + 1 条 forgotten 能在 5 秒内返回（实际 ${elapsed} ms）`)
+  ok(steps > 0, '确实压缩了东西')
+  eq(card.records.some((r) => r.id === 'dirty-forgotten'), false, 'forgotten 状态那条被清掉（它本来就不该留在卡里）')
+}
+
+console.log('\n压缩遇到认不出的清晰度要跳过而不是删（2026-11-04）：')
+{
+  const cfg = normalizeConfig({})
+  const card = createCard('global')
+  for (let i = 0; i < 401; i += 1) {
+    addRecord(card, {
+      text: `第 ${i} 条随便记的东西，长度凑一凑让预算撑爆${'啊'.repeat(30)}`,
+      isOwner: true, isPrivate: true, importance: 50, kind: 'event'
+    }, cfg, Date.now() - i * 3600_000)
+  }
+  card.records.push({
+    id: 'dirty-unknown', text: '这条清晰度是个旧版本留下的陌生值', clarity: 'half-clear',
+    importance: 10, kind: 'event', tags: [], createdAt: Date.now(), lastSeenAt: Date.now(), recallCount: 0
+  })
+
+  const started = Date.now()
+  compactCard(card, cfg, { now: Date.now() })
+  ok(Date.now() - started < 5000, '陌生清晰度也不会卡死')
+  eq(card.records.some((r) => r.id === 'dirty-unknown'), true, '认不出的那条被保留（不替用户删数据）')
+}
+
 console.log(`\n结果：${passed} 过 / ${failed} 败`)
 process.exit(failed === 0 ? 0 : 1)

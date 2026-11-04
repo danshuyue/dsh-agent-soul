@@ -105,7 +105,19 @@ console.log('相关区排序：持久事实不能被命中琐事挤下去（2026
     { text: '答应过树树一起把记忆注入改完', importance: 30, kind: 'promise', clarity: 'fuzzy', pinned: true },
     { text: '随口说过记忆注入的事', importance: 80, kind: 'event', clarity: 'vivid' }
   ])
-  eq(recall(pinnedCard, '记忆注入')[0].record.pinned, true, 'pinned 命中时排最前')
+  // pinned 的定位 2026-11-04 变了，这条断言跟着改。
+  //
+  // 原来断言「pinned 命中时排最前」，靠的是 relatedScore 里的 +60。但 pinned 一定被
+  // sectionize 放进 anchors 分区，而 anchors 属于固定区 —— 在相关区之前就已经无条件
+  // 全文注入了，pushRecord 的 used 集合还会把它从相关区剔掉。于是那 +60 的唯一效果
+  // 是让 pinned 条白占 recall 的候选名额（topK*3 的窗口），把真正相关的挤出去。
+  // 实测「我的 GitHub 账号是什么」就是这个死法：三条 pinned 把正确答案顶出了窗口。
+  //
+  // 所以现在断言两件事：pinned 仍然能被召回（去掉加分不等于搜不到），
+  // 以及它确实由固定区负责注入（下面「固定区照旧（永远不会忘的）」那条覆盖）。
+  const pinnedRanked = recall(pinnedCard, '记忆注入')
+  eq(pinnedRanked.length, 2, 'pinned 与普通条目都命中')
+  eq(pinnedRanked.some((x) => x.record.pinned === true), true, 'pinned 条目仍然被召回（不再靠加分抢位）')
 }
 
 console.log('注入两段 + 开关等价性（2026-10-30）：')

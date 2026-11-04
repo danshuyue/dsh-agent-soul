@@ -372,14 +372,17 @@ console.log('触发消息（composeTriggerMessage）')
   ok(pubMsg.includes('今天聊了很多'), '公开消息包含摘要')
   ok(pubMsg.includes('温暖但克制'), '公开消息带公开语气')
   ok(!pubMsg.includes('真实、不设防'), '公开消息不带私密语气')
-  ok(pubMsg.includes(diaryPublicPath('2026-10-29')), '公开消息指向公开文件')
+  // 2026-11-04：不再给绝对路径了 —— 改成让她用 soul_diary 工具写。
+  // 给路径是假定她有通用文件工具（宿主打包在 exe 里，赌不起），而且她自己拼路径拼错一次
+  // 就是写了一篇谁也找不到的日记。
+  ok(pubMsg.includes('soul_diary') && pubMsg.includes('kind=public'), '公开消息指明用 soul_diary 写（kind=public）')
   ok(!pubMsg.includes(diaryPrivatePath('2026-10-29')), '公开消息不提私密文件路径')
   ok(pubMsg.includes('私密那篇等我下一条消息'), '公开消息交代写完先停')
 
   ok(privMsg.includes('2026-10-29'), '私密消息包含日期')
   ok(privMsg.includes('真实、不设防'), '私密消息带私密语气')
-  ok(privMsg.includes(diaryPrivatePath('2026-10-29')), '私密消息指向私密文件')
-  ok(privMsg.includes('先读回你刚写的公开日记'), '私密消息要求先读回公开那篇')
+  ok(privMsg.includes('soul_diary') && privMsg.includes('kind=private'), '私密消息指明用 soul_diary 写（kind=private）')
+  ok(privMsg.includes('接着写私密那篇'), '私密消息承接公开那篇（写完再写下一篇）')
 }
 
 // 公开那条消息里绝不能出现私密内容 —— 这是拆成两条投递的全部意义

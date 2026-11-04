@@ -41,6 +41,7 @@ const ORDER = [
   'purpose-tab.js',
   'mood-tab.js',
   'diary-tab.js',     // 日记：定时触发、手动触发、最近日记列表
+  'notes-tab.js',     // 笔记：她自己写的 md，看/改/删
   'settings-tab.js',
   'app.js',           // SoulSection + ErrorBoundary + apply + module.exports
 ]

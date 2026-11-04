@@ -48,19 +48,24 @@ function ctxItem(name, text) {
 }
 const agentContext = (id = 'sess-1') => ({ agent: { session: { header: { id, cwd: 'D:\\proj' } } } })
 
-console.log('三段齐全：')
+console.log('四段齐全（2026-11-04 加了 soul:notes）：')
 {
   __resetAttestationForTest()
   const snap = recordAssembly(
-    assemblyOf([ctxItem('soul:persona', '我是糖糖'), ctxItem('soul:memory', '记得树树'), ctxItem('soul:purpose', '惦记着')]),
+    assemblyOf([
+      ctxItem('soul:persona', '我是糖糖'),
+      ctxItem('soul:memory', '记得树树'),
+      ctxItem('soul:notes', '写过笔记'),
+      ctxItem('soul:purpose', '惦记着')
+    ]),
     agentContext()
   )
-  eq(snap.verdict, 'full', '三段都在且非空 → full')
-  eq(snap.totalChars, 4 + 4 + 3, '字符数是三段之和')
+  eq(snap.verdict, 'full', '四段都在且非空 → full')
+  eq(snap.totalChars, 4 + 4 + 4 + 3, '字符数是四段之和')
   eq(snap.sessionId, 'sess-1', '记下了 sessionId')
   eq(snap.cwd, 'D:\\proj', '记下了 cwd')
   eq(snap.collapsed, false, '多段 section 不算 complete 冻结')
-  eq(snap.items.map((i) => i.state), ['present', 'present', 'present'], '三条都是 present')
+  eq(snap.items.map((i) => i.state), ['present', 'present', 'present', 'present'], '四条都是 present')
 }
 
 console.log('少一段 / 空串 / 全缺席：')
@@ -93,7 +98,10 @@ console.log('complete 冻结：')
   // 内置段被压成单段，但 soul 的 contexts 仍在 —— 这正是要证明的那件事
   const snap = recordAssembly(
     assemblyOf(
-      [ctxItem('soul:persona', '我是糖糖'), ctxItem('soul:memory', '记得树树'), ctxItem('soul:purpose', '惦记着')],
+      [
+        ctxItem('soul:persona', '我是糖糖'), ctxItem('soul:memory', '记得树树'),
+        ctxItem('soul:notes', '写过笔记'), ctxItem('soul:purpose', '惦记着')
+      ],
       [{ name: 'minimal:persona', text: 'You are a helpful software engineer assistant.' }]
     ),
     agentContext()
@@ -133,7 +141,7 @@ console.log('observed 的语义：')
   const state = attestationState()
   eq(state.observed, false, '一条都没有时 observed=false')
   eq(state.last, null, 'last 为 null')
-  eq(state.watched.map((w) => w.name), ['soul:persona', 'soul:memory', 'soul:purpose'], 'watched 是那三段')
+  eq(state.watched.map((w) => w.name), ['soul:persona', 'soul:memory', 'soul:notes', 'soul:purpose'], 'watched 是那四段（笔记段不能被漏掉）')
 }
 
 console.log(`\n结果：${passed} 通过，${failed} 失败`)

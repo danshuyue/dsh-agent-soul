@@ -41,10 +41,21 @@ describe('readRecentChat（今天到目前为止的流水）', () => {
       { t: t0, role: 'user', text: '早上好', src: 'user' },
       { t: t0 + 1000, role: 'assistant', text: '早喵', src: '' }
     ])
-    const out = readRecentChat(TODAY, 1000)
+    // 2026-11-04：主人怎么标跟着配置走（第三个参数），不再是写死的「树树」
+    const out = readRecentChat(TODAY, 1000, '树树')
     assert.match(out, /树树：早上好/)
     assert.match(out, /我：早喵/)
     assert.equal(out.indexOf('早上好') < out.indexOf('早喵'), true, '顺序应该是先树树后我')
+  })
+
+  test('没设主人名字时用中性的「对方」', () => {
+    writeJsonl(TODAY, [
+      { t: Date.now() - 1000, role: 'user', text: '在吗', src: 'user' },
+      { t: Date.now(), role: 'assistant', text: '在的', src: '' }
+    ])
+    const out = readRecentChat(TODAY, 1000)
+    assert.match(out, /对方：在吗/)
+    assert.doesNotMatch(out, /树树/)
   })
 
   test('超过 maxChars 只保留最近的部分', () => {

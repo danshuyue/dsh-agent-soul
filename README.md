@@ -1,8 +1,8 @@
 # dsh-agent-soul
 
-> 给 DSH 的 agent 一份**会忘事的记忆**、一套**会变的人格**和一份**会起伏的心情**。
+> 给 DSH 的 agent 一份**会忘事的记忆**、一套**会变的人格**、一份**会起伏的心情**，和一个**她自己写的笔记本**。
 
-它做五件事：
+它做六件事：
 
 | | 解决什么 |
 |---|---|
@@ -10,7 +10,8 @@
 | **记忆** | 值得记的事自己进来，随时间变模糊：清晰 → 清楚 → 模糊 → 只剩印象 → 遗忘。忘了不是删掉，是**先变得说不清** |
 | **目的** | 从记忆里长出一份「心里惦记的事」，让她的主动有连续性 —— 不是定时问候，是主动想起 |
 | **心情** | 每轮对话后自己判一次起伏（心情值 + 七情 + 时间线），**不注入提示词**。记下来的情绪有两个出口：当日记的底色、推着目的机制的驱动 |
-| **日记** | 开机时把**前一天**沉淀成两篇：一篇公开（可以拿给你看），一篇私密（只写给自己）。插件自己调模型生成、自己写文件，不走消息投递 |
+| **日记** | 开机时把**前一天**沉淀成两篇：一篇公开（可以拿给你看），一篇私密（只写给自己）。**先投消息让她用 `soul_diary` 自己写**，文件没出现才由插件 `llm.stream` 兜底生成 |
+| **笔记** | 她自己写的 md：一篇一个主题、自由格式、**永不衰减**。提示词里只给索引，正文用 `soul_note` 按需读 |
 
 不管 B 站、不管 QQ、不管桌宠。这个插件只关心「她是谁」和「她记得什么」。
 
@@ -49,7 +50,7 @@
 「你最近在惦记什么」
 ```
 
-工具是 `soul_memory`（write/recall/forget/pin/list）和 `soul_goal`（add/done/list）。
+工具是四个：`soul_memory`（write/recall/forget/pin/list）、`soul_goal`（add/done/list）、`soul_note`（list/read/write/append/rename/delete）、`soul_diary`（write/look）。
 
 文件全是纯文本，也可以直接改：
 
@@ -108,7 +109,7 @@
 
 提示词里写死三条硬约束：写成「关于树树的一条记忆」而不是复述对话、不许编他没说过的事、**没有信息量就输出空数组**（宁可少记）。提炼失败一律退回原话直存，不丢信息。
 
-**3. 打分入库**：过线（42）才写进卡。
+**3. 打分入库**：过线才写进卡，门槛按 `kind` 分档 —— 一次性事件（`event`）要 **70**，事实 / 偏好 / 约定这类画像（`fact` / `preference` / `promise`）是 **42**。
 
 | 你说的 | 结果 |
 |---|---|
@@ -245,9 +246,9 @@
 当天写只写得到半天；第二天再写，昨天的窗口已经完整闭合。而且「开机写」和「一直不关机」用的是同一条逻辑 —— 都是补昨天，不用区分机器什么时候开。
 
 ```
-DSH 启动 5 秒后 → 看昨天的两篇在不在
-  ├─ 都在 → 跳过（同一天重启多次不会重写、不会白花钱）
-  └─ 缺了 → 生成并写盘 → 再往前找有没有更早漏的，补一天
+DSH 启动 5 秒后 → 看昨天写得完不完整
+  ├─ 完整 → 跳过（同一天重启多次不会重写、不会白花钱）
+  └─ 缺了 / 只写了半天 → 生成并写盘 → 再往前找有没有更早漏的，补一天
 
 看门狗每 30 分钟 → 同上检查（兜住「一直不关机」的情况）
 ```
@@ -261,17 +262,34 @@ DSH 启动 5 秒后 → 看昨天的两篇在不在
         → 没出现：插件调 llm.stream 生成 → atomicWrite 落盘
 ```
 
+**投给哪个会话**：`diarySessionId`，默认空。空就跳过投递（走兜底生成），**不会**退化成「最近活跃会话」——那样私密内容可能写进你正在聊的会话；日志里会提示去设置页绑定。绑定入口是设置 → 日记 →「日记写进哪个会话」下拉，选一个**已有**会话，不自动创建。绑定失效时（会话被归档、宿主拿不到）记日志跳过，不会另找会话，这一天的日记交给兜底。
+
 两篇还是分开的、公开在前：投私密那条消息时公开已经落盘，而公开那条消息里只有公开历史 —— 顺序本身就是隔离。
 
 > **2026-10-31 的教训还在，别把判据改回去**：当年就是把消息投进会话让她写，`followup()` **同步返回 void**，「没抛异常就算成功」对 void 函数恒为真 —— 日志天天报「已发送」，取证时 335 个事件里 `source.kind='schedule'` 零命中，一个 turn 都没进。
 >
 > 所以这次的判据不是 followup 的返回值，而是**目标文件到底出没出现**。文件在就是写成了，别的一律不算。
 
-> **已经写过的不会被覆盖**：两篇都在就直接跳过，连消息都不投。这一条排在「有没有可投递的会话」之前 —— 否则没绑定会话的时候，她写好的日记会被兜底生成整篇冲掉。
+> **已经写过的不会被覆盖**：两篇都在、并且都算「完整」才跳过，连消息都不投。完整性看时间 —— 两篇里先写的那篇 mtime 要不早于窗口闭合（次日 00:00），**或者**不早于那天最后一条对话；下午手动触发只写了半天的，第二天仍然会重写。这条排在「有没有可投递的会话」之前 —— 否则没绑定会话的时候，她写好的日记会被兜底生成整篇冲掉。
 
 **为什么值得多这一层**：代笔时插件拼的是一段任务 prompt（"你在写今天给自己的公开日记"），里面没有人格、没有记忆。她自己写的时候，那边有完整的人格注入、记忆、心情 —— 同一件事，读起来不是一个人的味道。
 
-**生成时不先做摘要**：直接把对话原文喂进去（超上限才截尾部）。实测摘要会把 17945 字压成 128 字，且挑的全是窗口开头那段，同一天后半段整个被丢掉。
+### 她怎么写：`soul_diary`
+
+投过去的消息里会让她用这个工具落盘 —— 没有它，她收到了也写不进 `agents/diary/`（`soul_note` 只能写笔记目录）。
+
+```
+soul_diary(action='write', kind='public'|'private', date='YYYY-MM-DD', content='…', overwrite=true)
+soul_diary(action='look')
+```
+
+- `action`：`write` 写一篇；`look` 看最近 7 天写了没有（公开 / 私密分别标 ✓/✗，公开那篇带 30 字预览）
+- `kind`：`write` 时必填，`public` 公开（会给人看）/ `private` 私密（只有她自己看）
+- `date`：不填就是**昨天**（跟触发时机一致）；只能写最近 **14 天**，不能写未来
+- `overwrite`：那天已经有这篇时默认报错，必须显式 `overwrite=true` 才整篇替换 —— 她漏传一次 `date` 不会把看门狗写好的昨天那篇静默盖掉
+- 首行和日期由插件补，`content` 只写正文
+
+**生成时不先做摘要**：按条打分挑要喂的对话（生活 / 情绪加分，代码标识符和路径减分，树树的话权重 ×1.5），再按时间重排，上限 `diaryMaxConversationChars`（默认 8000）。实测摘要会把 17945 字压成 128 字，且挑的全是窗口开头那段，同一天后半段整个被丢掉。
 
 **两篇的隔离靠调用顺序**：先写公开（只带公开历史），落盘成功后才写私密（这时才给全部历史）。写在一条里的话，私密历史就摆在下面，她写公开那一步已经看到了本不该给人看的内容。
 
@@ -328,7 +346,7 @@ DSH 启动 5 秒后 → 看昨天的两篇在不在
 
 过滤口径跟记忆提取一致。助手那边**只记她说出口的话**：`reasoning` 和工具调用都不进。实测一个活跃会话里 90% 的助手消息是思考过程、只有 10% 是真正在说话，全收的话一天能攒几十万字。
 
-JSONL 默认保留 7 天，写日记时顺手清理旧的。
+对话流水**永不自动清理**（2026-11-04 起，见「数据在哪」）。
 
 ### 手动触发
 
@@ -412,6 +430,8 @@ soul_note(action='delete', title='…')         删掉（进回收站）
 
 ## 安装
 
+环境要求：**Node.js >= 22.19**、**DSH >= 0.2.0-rc.1**（见 `package.json` 的 `engines`）。
+
 ```bash
 # 1) 取代码
 git clone https://github.com/danshuyue/dsh-agent-soul.git "<DSH_HOME>/plugins/dsh-agent-soul"
@@ -436,7 +456,7 @@ mklink /J "<DSH_HOME>\profiles\desktop\node_modules\dsh-agent-soul" "<DSH_HOME>\
 | 人格 | 首轮 + 每 15 轮 | 你写多少就是多少 |
 | 记忆 | 每回合 | 默认 3200 字预算，实际约 2200~3000 token |
 | 目的 | 每回合 | ≤ 320 字，约 300~500 token |
-| 日记 | 每天一次 | 一次生成调两次模型（公开 + 私密） |
+| 日记 | 每天一次 | 她写：公开 / 私密各一次会话 turn；没写成才由插件兜底生成（也是两次模型调用） |
 | 心情判定 | 每回合 | 压缩后约 800 token；配小模型后单价降一个数量级 |
 
 DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
@@ -451,38 +471,71 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 
 | 键 | 默认 | 说明 |
 |---|---|---|
+| `enabled` | `true` | 插件总开关。关掉 = 只注册 API 和工具，不注入、不跑后台（心情 / 日记 / 记忆维护都不启动） |
+| `apiLoopbackOnly` | `true` | 设置页接口只允许本机回环请求。关掉 = 本机任何进程都能改人格、覆盖笔记 |
 | `mode` | `stack` | `stack` 叠加 / `exclusive` 互斥 |
 | `includeGlobal` | `true` | 全局人格是否参与注入 |
 | `projectPersonaEnabled` | `true` | 是否启用项目人格 |
+| `localNames` | `['AGENT.md']` | 项目人格的候选文件名（数组，按顺序取第一个存在的） |
 | `injectMaxChars` | `3200` | 记忆注入预算 |
+| `recentDays` | `7` | 最近 N 天的事至少保持「清楚」 |
+| `fuzzyAfterDays` | `7` | 新记忆前 N 天不降档 |
+| `forgetAfterDays` | `60` | 超过 N 天且重要度 < 50、不是主人相关 / 初次相遇 → 可以彻底遗忘 |
+| `minOwnerImportance` | `65` | 和主人相关且重要度达到这个值 → 最差也保持「清楚」 |
+| `maxRecords` | `600` | 单张卡最多留几条（超了压缩时开始降档） |
+| `warnChars` | `24000` | 渲染后的告警字数（只提醒，不自动删） |
+| `autoCompact` | `true` | 达告警线时自动压缩 |
+| `maxPerTick` | `12` | 单个回合最多自动写入几条 |
+| `dailyHour` | `0` | 每日维护时段（0 = 不限制） |
+| `autoImportanceEvent` | `70` | 一次性事件（`event`）的入库门槛 |
+| `autoImportanceDefault` | `42` | 其余类型（`fact` / `preference` / `promise` / `feeling`）的入库门槛 |
 | `memoryRecall` | `true` | 注入时按当前消息召回相关区（关掉 = 每轮回退整卡） |
 | `memoryRecallTopK` | `3` | 相关区最多召回几条 |
-| `apiLoopbackOnly` | `true` | 设置页接口只允许本机回环请求。关掉 = 本机任何进程都能改人格、覆盖笔记 |
-| `notesEnabled` | `true` | 是否把笔记索引注入提示词（关掉之后她不知道自己写过什么，但文件还在） |
-| `notesInjectMaxChars` | `600` | 笔记索引的注入预算。只放标题+字数+摘要，600 字够列 8~10 篇 |
+| `memoryEnabled` | `true` | 是否注入记忆（关掉仍在后台记） |
+| `projectMemoryEnabled` | `true` | 项目记忆独立一张卡 |
+| `globalPromoteImportance` | `62` | 自动记忆双写进全局卡的门槛（关于主人本人 + 重要度 ≥ 此值） |
+| `memoryRefine` | `true` | 自动提取时先让模型提炼（关掉 = 原话直存，会变流水账） |
+| `memoryRefineProvider` / `memoryRefineModel` | `""` | 提炼用的模型（空 = 跟随会话模型） |
 | `memoryRecentDiaryDays` | `2` | 第一轮带几天日记（0 = 关） |
 | `memoryRecentChatChars` | `3000` | 第一轮带多少字今天流水（0 = 关） |
 | `memoryRecentDiaryIncludePrivate` | `false` | 「最近」里是否含私密日记 |
-| `memoryRefine` | `true` | 自动提取时先让模型提炼（关掉 = 原话直存，会变流水账） |
-| `memoryRefineProvider` / `memoryRefineModel` | `""` | 提炼用的模型（空 = 跟随会话模型） |
-| `memoryEnabled` | `true` | 是否注入记忆（关掉仍在后台记） |
-| `projectMemoryEnabled` | `true` | 项目记忆独立一张卡 |
 | `purposeEnabled` | `true` | 是否注入「心里惦记的事」 |
+| `notesEnabled` | `true` | 是否把笔记索引注入提示词（关掉之后她不知道自己写过什么，但文件还在） |
+| `notesInjectMaxChars` | `600` | 笔记索引的注入预算。只放标题+字数+摘要，600 字够列 8~10 篇 |
+| `moodEnabled` | `true` | 是否每轮判一次心情（关掉后日记也不带情绪底色） |
+| `moodBase` | `70` | 心情基准 |
+| `moodFloor` | `0` | 心情下限（再难过也不跌破） |
+| `moodDecayHalfHours` | `12` | 心情向基准回落一半要几小时；七情固定 90 分钟归零 |
+| `moodSigMood` | `3` | 判定值绝对变化 ≥ 这个才算显著，以下记为小波动 |
+| `moodSigDim` | `5` | 单根七情变化 ≥ 这个才算显著（按原始判定值算，满格 20） |
+| `moodSelfName` | `小糖` | 判定提示词里她的名字 |
+| `moodOwnerName` | `树树` | 判定提示词里主人的称呼 |
+| `moodSelfAliases` | `树树` | 别名：判定时把这些词当成在叫她 |
+| `moodJudgeProvider` / `moodJudgeModel` | `""` | 心情判定用的模型（空 = 跟随会话模型） |
+| `moodToneInject` | `true` | 心情语气是否挂到消息上 |
+| `moodToneEveryTurns` | `7` | 低 / 高心情每几轮才挂一次 |
+| `moodToneThreshold` | `8` | 偏离基准超过这个值才分「低 / 高」，否则中档（什么都不挂） |
 | `diaryEnabled` | `true` | 是否启用日记 |
+| `diarySchedule` | `"22:00"` | 已完全停用，只留兼容（见下） |
 | `diaryWatchdogMinutes` | `30` | 兜底检查间隔（分钟） |
+| `diaryCatchUp` | `true` | 启动时补写最近漏掉的那一天 |
 | `diaryBackfillDays` | `4` | 写新日记时参考前几天的旧日记 |
 | `diaryOverwrite` | `true` | 同日重复触发是否覆盖 |
 | `diaryAgentWrite` | `true` | 先让她自己写（投消息 + 等文件）；关掉 = 老路子，插件直接生成。关不关都不丢日记，只影响「谁来写」 |
 | `diaryAgentTimeoutMs` | `180000` | 等她写多久。太短会经常掉进兜底，太长开机后日记会迟到 |
 | `diaryManualNote` | `true` | 手动触发是否允许附备注 |
 | `diaryPublicTone` / `diaryPrivateTone` | `""` | 语气（空 = 让她自己把握） |
-| `diaryMaxConversationChars` | `30000` | 喂给日记的对话上限（超了留尾部） |
+| `diaryMaxConversationChars` | `8000` | 按分数挑多少字喂给日记（不是截尾部） |
+| `diaryMaxSummaryChars` | `2000` | 摘要字数上限。日记主流程已不做摘要，改它不影响正文 |
 | `diaryPublicMoodMoments` | `3` | 公开日记带几条「当时的想法」（0 = 不带） |
 | `diaryPrivateMoodMoments` | `6` | 私密日记带几条 |
+| `diarySessionId` | `""` | 绑定的日记会话 id（空 = 不投递，走兜底，见「日记」） |
+| `diarySessionBornAt` | `0` | 绑定开始时间（毫秒时间戳；0 = 旧配置没有这个字段） |
+| `diaryPrivateVisible` | `false` | 设置页是否允许查看私密日记正文（默认只报存在性） |
 | `diarySummarizeProvider` / `diarySummarizeModel` | `""` | 生成用的模型（空 = 跟随会话模型） |
 | `diarySummarizeTimeoutMs` | `30000` | 生成调用超时 |
 
-记忆引擎参数（衰减天数、阈值、压缩）在 `lib/memory.js` 的 `DEFAULTS`，全部有注释说明为什么是这个值。
+记忆引擎参数（`recentDays` / `fuzzyAfterDays` / `forgetAfterDays` / `minOwnerImportance` / `maxRecords` / `warnChars` / `autoCompact` / `maxPerTick` / `dailyHour` / `autoImportanceEvent` / `autoImportanceDefault`）也都在 `persona.json` 里，默认值只在 `lib/memory.js` 的 `DEFAULTS` 定义一次，全部有注释说明为什么是这个值。
 
 > `diarySchedule`（默认 `"22:00"`）**已完全停用**：不再触发定时（定时器已删除），也不再参与日记的「一天边界」（现在是自然日）。保留这个键只是为了不让旧配置报错。
 
@@ -500,16 +553,16 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 <DSH_HOME>/agents/memory/archive.jsonl           遗忘档案（append-only）
 <DSH_HOME>/agents/mood/global.json               心情状态（全局一份）
 <DSH_HOME>/agents/diary/conversations/YYYY-MM-DD.jsonl  当天对话流水（所有会话汇总）
-
-
-> 对话流水**不再自动清理**（2026-11-04 起）。它是日记和补写的唯一素材来源，删掉以后那一天就永远补不回来。体积靠归档/压缩处理，不靠删。
 <DSH_HOME>/agents/diary/public/YYYY-MM-DD.md     公开日记
 <DSH_HOME>/agents/diary/private/YYYY-MM-DD.md    私密日记（明文，靠提示词区分）
 <DSH_HOME>/agents/diary/threads.json              日记连续线（还悬着的事）
+<DSH_HOME>/agents/notes/                          她自己的笔记（md + index.json + trash/）
 <DSH_HOME>/agents/secrets/<name>.bin              密钥（Windows 上是 DPAPI 密文，无明文）
 <DSH_HOME>/agents/host-probe.json                 宿主自检失败时的现场（正常时为空/不存在）
 <DSH_HOME>/agents/soul.log                       日志（超 2MB 归档成 soul.log.<时间戳>，留 5 份）
 ```
+
+> 对话流水**不再自动清理**（2026-11-04 起）。它是日记和补写的唯一素材来源，删掉以后那一天就永远补不回来。体积靠归档/压缩处理，不靠删。
 
 记忆卡旁边可能还有两种文件：`global.json.corrupt-<时间戳>`（读坏时的原文备份，数据没丢）和 `global.json.bak`（上一代）。
 
@@ -520,29 +573,29 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 ## 排障
 
 ```bash
-grep "\[apply\]"  ~/.dsh/agents/soul.log | tail -3   # 三段注入有没有起来
+grep "\[apply\]"  ~/.dsh/agents/soul.log | tail -3   # 四段注入有没有起来
 grep "\[extract\]" ~/.dsh/agents/soul.log | tail -5  # 自动记忆记了几条
 grep "\[memory\]" ~/.dsh/agents/soul.log | tail -5   # 衰减/压缩/丢弃了什么
 grep "\[diary\]"  ~/.dsh/agents/soul.log | tail -10  # 写没写、跳过原因
 grep "\[mood\]"   ~/.dsh/agents/soul.log | tail -5   # 心情合并/读取/语气注入
 grep "\[host\]"   ~/.dsh/agents/soul.log | tail -5   # 宿主接口形状自检（有 ⚠️ 就是变了）
-grep "\[attest\]" ~/.dsh/agents/soul.log | tail -5   # 装配证词：三段到底进没进最终提示词
+grep "\[attest\]" ~/.dsh/agents/soul.log | tail -5   # 装配证词：四段到底进没进最终提示词
 grep "语气注入"    ~/.dsh/agents/soul.log | tail -5   # 心情有没有真的挂到消息上
 ```
 
 **想知道「我到底进没进提示词」**（2026-11-02 加）：`grep "\[attest\]"`，或 `GET /api/soul/attestation`。它读的是 `system-prompt/assemble` **真实返回的上下文清单**，不是插件自己「我返回了文本」的推断——这两件事之间隔着装配、过滤、覆盖三道闸门，前者才算证据。
 
-三种结论：`full` 三段都进去了 / `partial` 少一段（再看是 `blank` 还是 `missing`）/ `absent` 一段都没进。`blank` 是那段返回了空串（多半是配置关了或首轮已过），`missing` 是压根不在清单里（注册/过滤掉了）—— 修法完全不同。
+三种结论：`full` 四段都进去了 / `partial` 少一段（再看是 `blank` 还是 `missing`）/ `absent` 一段都没进。`blank` 是那段返回了空串（多半是配置关了或首轮已过），`missing` 是压根不在清单里（注册/过滤掉了）—— 修法完全不同。
 
-**`partial` 多数时候是正常的，别慌**：人格按设计只在首轮注入、之后每 `PERSONA_REFRESH_TURNS` 轮补一次，记忆在子会话里也返回空串。所以日常大部分轮次本来就是 `partial`。真正要盯的是 `absent`（三段全没了），那才是出事。
+**`partial` 多数时候是正常的，别慌**：人格按设计只在首轮注入、之后每 `PERSONA_REFRESH_TURNS` 轮补一次，记忆在子会话里也返回空串。所以日常大部分轮次本来就是 `partial`。真正要盯的是 `absent`（四段全没了），那才是出事。
 
 `observed: false` 的含义很确切：**观测器自己没跑起来**，不是「没注入」。看门狗死了和它报警是两件事，所以分开报。
 
-顺带它会标 `collapsed: true`：那个会话的 preset 声明了 `complete: true`，内置段被压成了单段。**这对 soul 无伤**——三段走的是 `contexts`，只要 `required: true` 就留得住，跟 `sections` 那条线不是一回事。
+顺带它会标 `collapsed: true`：那个会话的 preset 声明了 `complete: true`，内置段被压成了单段。**这对 soul 无伤**——四段走的是 `contexts`，只要 `required: true` 就留得住，跟 `sections` 那条线不是一回事。
 
 **心情语气一条都没挂出来**：① 看 `moodToneInject` 有没有被关 ② 看当前是不是中档（中档故意什么都不加）③ `moodToneEveryTurns` 是几 —— 默认 7，前 7 轮本来就不挂 ④ 阈值设成 20 的话要心情掉到 50 以下才会分档。
 
-**设置页「灵魂」不出现**：① 插件是不是真加载了（看 `[apply] 启动`）② 目录名 / `package.json` 的 name / `cordis.patch.yml` 的 name 三处是否完全一致 ③ 重启 DSH
+**设置页「灵魂」不出现**：① 插件是不是真加载了（看 `[apply] 启动`）② 目录名 / `package.json` 的 name / `lib/index.js` 导出的 name / `cordis.patch.yml` 的 name 四处是否完全一致 ③ 重启 DSH
 
 **改了 `lib/` 没反应**：多半是没同步到运行副本，见上面安装那节的 ⚠️。
 
@@ -551,7 +604,7 @@ grep "语气注入"    ~/.dsh/agents/soul.log | tail -5   # 心情有没有真�
 **记忆一直在掉条数**：`archive.jsonl` 里能查回来。不该忘的就在设置页固定（固定后永不淘汰）。
 
 **日记没写**：
-1. `grep "\[diary\]"` 看是「跳过」还是「失败」—— 跳过说明两篇都在或功能关了
+1. `grep "\[diary\]"` 看是「跳过」还是「失败」—— 跳过说明两篇都完整、或功能关了
 2. 「写未完成」= 生成失败，日志上一行会写原因（模型取不到 / 超时 / 写盘失败）
 3. 同一天重启多次只有第一次会写，之后是「跳过」，这是设计
 

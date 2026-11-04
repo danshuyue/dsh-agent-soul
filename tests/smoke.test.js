@@ -2,7 +2,7 @@
  * 冒烟测试：node tests/smoke.test.js
  *
  * 用一个假的宿主 ctx 跑一遍 apply()，验证：
- *   ① 三段注入 + 心情钩子都注册上了，且 text() 真的返回内容；
+ *   ① 四段注入 + 心情钩子都注册上了，且 text() 真的返回内容；
  *   ② 两个工具都注册上了，schema 是「编译好的 JSON Schema」而不是 DSL；
  *   ③ 工具 execute 真能跑通（写一条记忆 → 读回来）；
  *   ④ 数据落在临时的 DSH_HOME 里，不碰真实的 ~/.dsh。
@@ -90,7 +90,7 @@ ok(threw === null, `apply 没抛错${threw === null ? '' : `（${threw.message}�
 console.log('注入段：')
 {
   const segments = ctx.__contextSegments
-  // 2026-11-04：多了第五段 soul:notes（笔记索引，order 245）。
+  // 2026-11-04：多了第四段 soul:notes（笔记索引，order 245）。
   // 它刻意单独成段而不是拼进记忆段 —— 记忆段有粘性机制（话题没变就交回上次那段文本），
   // 笔记拼进去会出现「索引变了但注入还是旧的」，很难查。
   eq(segments.length, 5, '注册了五段（心情钩子 / 目的 / 笔记 / 记忆 / 人格）')

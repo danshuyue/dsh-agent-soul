@@ -2,7 +2,7 @@
  * 装配证词测试（2026-11-02）：node tests/attest.test.js
  *
  * 守的是「不许再假成功」这条线：
- *   ① 三段都在 → full；少一段 → partial；全不在 → absent；
+ *   ① 四段都在 → full；少一段 → partial；全不在 → absent；
  *   ② 「在但在但没字」和「压根不在」必须分开报（blank vs missing）——
  *      前者是 text() 返回了空串，后者是注册/过滤掉了，修法完全不同；
  *   ③ complete 冻结（sections 被压成单段）要被记下来，但不能污染

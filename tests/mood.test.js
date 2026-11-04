@@ -16,6 +16,7 @@ import {
   TIMELINE_CAP,
   applyDelta,
   blankMoodState,
+  buildJudgeSystem,
   decayMood,
   dimPercent,
   dimWord,
@@ -31,6 +32,7 @@ import {
   parseDelta,
   unobserveAll
 } from '../lib/mood.js'
+import { DEFAULT_CONFIG } from '../lib/store.js'
 
 let passed = 0
 let failed = 0
@@ -194,6 +196,23 @@ console.log('状态与配置规整：')
   eq(tight.moodSigMood, 1, '显著阈值收紧到 1-30')
   eq(tight.moodSelfName, '小糖', '称呼去空白')
   eq(tight.moodEnabled, false, '显式关掉能关')
+}
+
+// --------------------------------------------------------------------------
+// 判断提示词的别名行：空值时整句省略，不留空壳（2026-11-04）
+// --------------------------------------------------------------------------
+console.log('判断提示词的别名行：')
+{
+  const withAlias = buildJudgeSystem({ self: '小糖', owner: '树树', aliases: '糖糖' })
+  ok(withAlias.includes('树树平时会这样叫你：糖糖'), '有别名时提示词带上这句')
+
+  const empty = buildJudgeSystem({ self: '小糖', owner: '树树', aliases: '' })
+  ok(!empty.includes('会这样叫你'), '空别名时整句省略')
+  ok(!empty.includes('平时会这样叫你：'), '空别名时不留「平时会这样叫你：」空壳')
+
+  // 默认值不能又是主人名字：否则会写成「树树平时会这样叫你：树树」。
+  eq(DEFAULT_CONFIG.moodSelfAliases, '', '别名默认是空（不是主人名字）')
+  eq(normalizeMoodConfig({}).moodSelfAliases, '', '规整后缺省仍是空')
 }
 
 console.log('表情图（跟原 dsh-feiyu-mood 同一套）：')

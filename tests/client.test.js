@@ -32,19 +32,61 @@ function eq(actual, expected, name) {
 const loaded = []
 const registeredSlots = []
 const effects = []
+const effectCalls = []
 
-/** 极简 React 替身：只要能 createElement 和那几个 hook 就行。 */
+/**
+ * 2026-11-05 修 P1-7：原来 createElement 把函数组件降格成字符串 `type.name`，
+ * 函数引用直接丢了 —— 于是「组件首行改成 throw」测试仍 33 过 / 0 败。
+ * 现在额外保留 component 引用（type 保持原样，不破坏既有断言），
+ * 配合下面的 renderTree 真调用组件。
+ * useEffect 记录调度但**不执行回调**：真跑会触发 fetch 链；先钉住「有没有被调度」，
+ * 数据流由 s2-hardening.test.js 的契约用例覆盖，别让微任务把测试结果搞成不确定。
+ */
 const ReactStub = {
   createElement: function (type, props) {
     var children = Array.prototype.slice.call(arguments, 2)
-    return { type: typeof type === 'function' ? (type.name || 'fn') : type, props: props || {}, children: children }
+    return {
+      type: typeof type === 'function' ? (type.name || 'fn') : type,
+      component: typeof type === 'function' ? type : null,
+      props: props || {},
+      children: children
+    }
   },
   useCallback: function (fn) { return fn },
-  useEffect: function () {},
+  useEffect: function (fn, deps) {
+    effectCalls.push({ fn, deps })
+    return function () {}
+  },
   useState: function (initial) { return [typeof initial === 'function' ? initial() : initial, function () {}] },
   useMemo: function (fn) { return fn() },
   useRef: function (value) { return { current: value } },
   Component: function Component() {},
+}
+
+/** 递归展开元素树，真正调用每个函数组件；抛错收集到 errors。 */
+const renderedComponents = new Set()
+function renderTree(node, depth, errors) {
+  if (node === null || node === undefined || depth > 3) return
+  if (Array.isArray(node)) {
+    for (const child of node) renderTree(child, depth, errors)
+    return
+  }
+  if (typeof node !== 'object') return
+  if (typeof node.component === 'function') {
+    const name = node.component.name || 'anonymous'
+    renderedComponents.add(name)
+    const props = Object.assign({}, node.props || {})
+    const children = node.children || []
+    if (props.children === undefined && children.length > 0) {
+      props.children = children.length === 1 ? children[0] : children
+    }
+    try {
+      renderTree(node.component(props), depth + 1, errors)
+    } catch (error) {
+      errors.push(`${name}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  for (const child of node.children || []) renderTree(child, depth, errors)
 }
 
 globalThis.window = {
@@ -140,19 +182,44 @@ console.log('设置页注册：')
   eq(registerCall?.definition?.label(), '灵魂', 'label 显示「灵魂」')
   ok(typeof registerCall?.component === 'function', '提供了组件函数')
 
-  // 组件本身能创建元素（不渲染，只验它不炸）
-  let renderError = null
+  // 真渲染：递归调用组件函数，而不是只看返回值是个对象。
+  // 这样「把任一组件首行改成 throw」会立刻变成失败断言。
+  const renderErrors = []
+  let element = null
   try {
-    const element = registerCall.component({ sessionId: 'test', cwd: '' })
-    ok(element !== null && typeof element === 'object', '组件能创建元素')
+    element = registerCall.component({
+      sessionId: 'test',
+      cwd: '',
+      state: { workspace: { cwd: '' } },
+      close: function () {}
+    })
   } catch (error) {
-    renderError = error
-    ok(false, `组件创建元素失败：${error.message}`)
+    renderErrors.push(`根组件: ${error instanceof Error ? error.message : String(error)}`)
   }
+  ok(element !== null && typeof element === 'object', '组件能创建元素')
+  renderTree(element, 0, renderErrors)
+  ok(renderedComponents.has('ErrorBoundary'), '真调用了 ErrorBoundary（不是只看元素对象）')
+  ok(renderedComponents.has('SoulSection'), '真调用了 SoulSection')
+  ok(renderedComponents.size >= 3, `递归渲染覆盖了 ${renderedComponents.size} 个组件（≥3）`)
+  ok(effectCalls.length > 0, `useEffect 被调度了 ${effectCalls.length} 次（空 stub 时代为 0）`)
+  ok(renderErrors.length === 0, `所有被调用的组件都没抛错${renderErrors.length === 0 ? '' : `：${renderErrors.join('；')}`}`)
+
+  // 元测试：故意抛错的组件必须被探针捕获 —— 证明上面这条不是恒真断言。
+  function BoomComponent() { throw new Error('元测试故意抛错') }
+  const probeErrors = []
+  renderTree({ component: BoomComponent, type: BoomComponent, props: {}, children: [] }, 0, probeErrors)
+  eq(probeErrors.length, 1, '渲染探针能捕获组件异常（组件里写 throw 不会再全绿）')
+  ok(expectedThrowCount(probeErrors, '元测试故意抛错'), '捕获到的正是注入的那个异常')
+
   ok(registerResult !== undefined, 'inject 回调有返回值')
 }
 
-console.log('七个标签页都进了 bundle：')
+/** 元测试辅助：确认探针抓到的错误内容对得上。 */
+function expectedThrowCount(errors, text) {
+  return errors.some((line) => String(line).includes(text))
+}
+
+console.log('八个标签页都进了 bundle：')
 {
   // bundle 是生成物，这里直接读它做完整性检查：
   // 少拼一个片段（比如忘了加进 build-client 的 ORDER）时，factory 不会报错，
@@ -163,7 +230,8 @@ console.log('七个标签页都进了 bundle：')
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const bundle = readFileSync(join(root, 'lib', 'client.js'), 'utf8')
 
-  const tabs = ['overview', 'persona', 'memory', 'purpose', 'mood', 'diary', 'settings']
+  // 原来只列 7 个，漏了 notes（P1-7）；实际是 8 个 tab。
+  const tabs = ['overview', 'persona', 'memory', 'purpose', 'mood', 'diary', 'notes', 'settings']
   for (const key of tabs) {
     ok(bundle.includes(`['${key}',`), `标签页 ${key} 注册了`)
   }
@@ -176,12 +244,16 @@ console.log('七个标签页都进了 bundle：')
 
 console.log('清理：')
 {
+  let disposed = 0
   for (const effect of effects) {
     if (typeof effect === 'function') {
-      try { effect() } catch { /* 忽略 */ }
+      effect()
+      disposed += 1
     }
   }
-  ok(true, 'disposer 可调用')
+  ok(effectCalls.every((call) => typeof call.fn === 'function'), 'useEffect 收到的都是函数回调（不执行，避免异步 fetch）')
+  // 原来这里是无条件 ok(true) 的恒真断言，换成真计数。
+  ok(disposed > 0, `apply 注册的 ${disposed} 个 disposer 都能调用（恒真断言已删除）`)
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

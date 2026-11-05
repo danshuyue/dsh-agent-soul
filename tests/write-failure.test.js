@@ -29,6 +29,8 @@ function eq(actual, expected, name) {
 
 const HOME = mkdtempSync(join(tmpdir(), 'soul-write-fail-'))
 process.env.DSH_HOME = HOME
+// S2 起接口要带会话令牌；测试用固定令牌模式，避免依赖 /session 的 bootstrap。
+process.env.DSH_SOUL_API_TOKEN = 'soul-write-fail-test-token'
 
 const {
   collectCandidates,
@@ -152,7 +154,10 @@ console.log('\n③ POST /persona：写盘失败必须回非 200，成功仍然�
     const req = {
       method,
       url,
-      headers: { host: '127.0.0.1:53397' },
+      headers: {
+        host: '127.0.0.1:53397',
+        'x-soul-token': process.env.DSH_SOUL_API_TOKEN
+      },
       socket: { remoteAddress: '127.0.0.1' },
       on(event, cb) {
         if (!listeners.has(event)) listeners.set(event, [])

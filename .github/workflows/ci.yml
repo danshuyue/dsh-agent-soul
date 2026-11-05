@@ -1,0 +1,23 @@
+# 2026-11-05 修 P1-9：发布前必须有自动拦截点。
+# 本地 prepack 负责 npm publish 前的门禁，这条 workflow 负责 PR / push。
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 全量测试（隔离 DSH_HOME，不写真实用户目录）
+        run: npm test
+        env:
+          DSH_HOME: ${{ runner.temp }}/dsh-ci-home
+      - name: 生成物与源码必须同步
+        run: git diff --exit-code -- lib/client.js

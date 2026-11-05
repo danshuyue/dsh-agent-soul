@@ -1,0 +1,9 @@
+# 2026-11-05 修 P2-18：只锁「生成物」的行尾。
+# 以前片段在 Windows 检出是 CRLF、构建外壳是 LF，产物是混合行尾；
+# 跑一次 npm test 就把 lib/client.js 标成 M 并弹 "LF will be replaced by CRLF"。
+# build-client.mjs 现在读片段时统一归一成 LF，产物恒定全 LF；
+# 片段本身保留仓库原有的 CRLF（-text），避免为了格式制造 2300 行无关 diff。
+lib/client.js text eol=lf
+lib/client/*.js -text
+tools/build-client.mjs -text
+*.png binary

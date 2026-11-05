@@ -19,6 +19,7 @@
  *   node tools/sync.mjs --dry           只看会改什么，不真写
  */
 import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -36,11 +37,12 @@ const DIRS = ['lib', 'tests', 'docs', 'assets']
 const FILES = ['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE']
 
 /**
- * 原子复制：先落到同目录的 .tmp-<pid>，再 rename 覆盖。
+ * 原子复制：先落到同目录的 .tmp-<pid>-<uuid>，再 rename 覆盖。
  * rename 在同一分区是原子操作，读的人不会看到半截内容。
+ * 2026-11-05 S3：tmp 名加 UUID，避免同进程连续同步互相踩残留。
  */
 function atomicCopy(from, to) {
-  const tmp = `${to}.tmp-${process.pid}`
+  const tmp = `${to}.tmp-${process.pid}-${randomUUID()}`
   copyFileSync(from, tmp)
   renameSync(tmp, to)
 }
@@ -126,23 +128,40 @@ for (const file of FILES) {
 }
 
 // 清理上次中断留下的 .tmp（只清自己这套命名）
-try {
-  for (const dir of DIRS) {
-    const target = join(DEST, dir)
-    if (!existsSync(target)) continue
-    for (const entry of readdirSync(target)) {
-      if (/\.tmp-\d+$/.test(entry)) {
-        rmSync(join(target, entry), { force: true })
-        console.log(`  清掉残留临时文件 ${dir}/${entry}`)
-      }
+// 2026-11-05 修 P1-8：原来这段**没有 if (!dry)** —— `--dry` 会真的 rmSync，
+// 随后还打印「什么都没改」。预览生产宿主目录时这就是一次误删。
+// 顺手改成递归扫描：atomicCopy 现在会往 lib/client/ 这类子目录写，
+// 只扫第一层根本清不到残留。
+let staleCount = 0
+let removedCount = 0
+const TMP_RE = /\.tmp-\d+(?:-[0-9a-f-]+)?$/i
+function cleanTmp(dir, rel = '') {
+  const target = join(DEST, dir, rel)
+  if (!existsSync(target)) return
+  for (const entry of readdirSync(target, { withFileTypes: true })) {
+    const full = join(target, entry.name)
+    if (entry.isDirectory()) {
+      cleanTmp(dir, join(rel, entry.name))
+      continue
     }
+    if (!TMP_RE.test(entry.name)) continue
+    staleCount += 1
+    if (dry) continue
+    rmSync(full, { force: true })
+    removedCount += 1
+    console.log(`  清掉残留临时文件 ${join(dir, rel, entry.name)}`)
   }
-} catch {
-  /* 清理失败不影响同步结果 */
+}
+try {
+  for (const dir of DIRS) cleanTmp(dir)
+} catch (error) {
+  console.error(`  ⚠️ 清理临时文件失败（不影响同步结果）：${error instanceof Error ? error.message : String(error)}`)
 }
 
 console.log('')
-console.log(dry ? '（dry run 结束，什么都没改）' : `同步完成：新增 ${added}，更新 ${updated} 个文件`)
+console.log(dry
+  ? `（dry run 结束，什么都没改；发现 ${staleCount} 个残留临时文件，未删除）`
+  : `同步完成：新增 ${added}，更新 ${updated} 个文件，清掉 ${removedCount} 个残留临时文件`)
 if (!dry) {
   console.log('')
   console.log('⚠️  改动要重启 DSH（或刷新页面加载 client.js）才生效。')

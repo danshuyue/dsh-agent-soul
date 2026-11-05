@@ -388,28 +388,29 @@ console.log('子会话短路（2026-10-30：origin=subagent 不该注入整卡�
   ok(wroteProject === false, '也没有写进任何项目卡')
 }
 
-console.log('kind 一路落到记录里（2026-10-30）：')
+console.log('写之前先判归属（2026-11-05，取代双写）：')
 {
   const store = await import('../lib/store.js')
   const cwd = join(sandbox, 'kind-project')
-  // 2026-10-30：落库加了硬闸（任务/进度丢弃 + 按 kind 分档门槛 42/70），
-  // 所以这里的分值必须跟着门槛走：fact 43 仍然远低于全局提升线 62，
-  // 照样能验证「fact 低分也进全局卡」；feeling 90 验证高分通道。
-  // 第二条原来带「今天」—— 那是时间锚点，新规则下会被拒收，换掉。
+  // 2026-10-30：落库加了硬闸（任务/进度丢弃 + 按 kind 分档门槛 42/70），分值跟着门槛走。
+  // 2026-11-05：不再「先全写项目卡、再把 fact/高分抄进全局」——
+  // 改成写之前判归属：项目独有的进项目卡，其余进全局卡。
   const report = store.writeAutoMemories(cwd, [
     { text: '树树的专业是机器人工程（kind 测试 A）', kind: 'fact', importance: 43 },
     { text: '树树心情一直不错（kind 测试 B）', kind: 'feeling', importance: 90 },
-    { text: '树树偏好夜里写代码（kind 测试 C）', kind: 'preference', importance: 50 }
+    { text: '树树偏好夜里写代码（kind 测试 C）', kind: 'preference', importance: 50 },
+    { text: '这个项目的测试要先构建客户端（kind 测试 D）', kind: 'fact', importance: 60 }
   ])
-  eq(report.written, 3, '三条都写进了项目卡')
-  eq(report.promoted, 2, 'fact（低分也算）+ 高分那两条进全局卡')
+  eq(report.written, 4, '四条都写进去了')
+  eq(report.promoted, 0, '不再双写（promoted 保留字段但恒为 0）')
 
   const project = store.projectCard(cwd)
-  const kinds = project.records.map((r) => r.kind).sort()
-  eq(kinds, ['fact', 'feeling', 'preference'], '项目卡里每条都带着自己的 kind')
+  eq(project.records.map((r) => r.text.includes('kind 测试 D')), [true], '项目独有的那条进了项目卡')
+  eq(project.records.length, 1, '项目卡不再复制全局条目')
 
-  const globalKinds = store.globalCard().records.filter((r) => r.text.includes('kind 测试')).map((r) => r.kind).sort()
-  eq(globalKinds, ['fact', 'feeling'], '提升到全局卡的那两条也带着 kind')
+  const globals = store.globalCard().records.filter((r) => r.text.includes('kind 测试'))
+  eq(globals.map((r) => r.kind).sort(), ['fact', 'feeling', 'preference'], '其余三条进全局卡，kind 保留')
+  ok(globals.every((r) => !r.text.includes('kind 测试 D')), '项目那条没有混进全局卡')
 }
 
 

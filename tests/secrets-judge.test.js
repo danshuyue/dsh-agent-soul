@@ -10,6 +10,9 @@ import { mkdtempSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+// 2026-11-05：DPAPI 只在 Windows 可用，Linux/macOS 退化 base64 + 0600（见 lib/secrets.js:10-13）
+const IS_WIN = process.platform === 'win32'
+
 const sandbox = mkdtempSync(join(tmpdir(), 'soul-secrets-'))
 process.env.DSH_HOME = sandbox
 mkdirSync(join(sandbox, 'agents'), { recursive: true })
@@ -34,13 +37,13 @@ console.log('\n① 存 → 读 → 状态 → 删')
 
   const info = secrets.secretInfo('siliconflow')
   eq(info.exists, true, '状态：存在')
-  eq(info.encrypted, true, '状态：加密')
+  eq(info.encrypted, IS_WIN, '状态：加密')
   eq('' in info, false, '状态里没有明文')
 
   // 文件里绝不许出现明文
   const raw = readFileSync(secrets.secretPath('siliconflow'), 'utf8')
   eq(raw.includes('sk-unit-test-0001'), false, '文件里没有明文密钥')
-  eq(raw.startsWith('dpapi:'), true, '文件是 DPAPI 密文')
+  eq(raw.startsWith(IS_WIN ? 'dpapi:' : 'plain:'), true, '文件是 DPAPI 密文')
 
   // 缓存清掉后仍能解（验证是真的存在盘上，不是只活在内存）
   secrets.__resetSecretsForTest()

@@ -53,10 +53,13 @@ console.log('容错：')
   ok(Array.isArray(r.projects) && r.projects.length === 0, '坏 JSON 回退空表（不炸）')
 }
 
+// 2026-11-05：decodeSessionDirName 按平台取分隔符（lib/registry.js），断言跟着走
+const SEP = process.platform === 'win32' ? '\\' : '/'
+
 console.log('会话目录名解码（decodeSessionDirName）：')
 {
-  ok(registry.decodeSessionDirName('--D-team--') === 'D:\\team', 'D:\\team')
-  ok(registry.decodeSessionDirName('--D-~80A5~9C7C--') === 'D:\\肥鱼', '中文目录（~XXXX 编码）')
+  ok(registry.decodeSessionDirName('--D-team--') === 'D:' + SEP + 'team', 'D:team')
+  ok(registry.decodeSessionDirName('--D-~80A5~9C7C--') === 'D:' + SEP + '肥鱼', '中文目录（~XXXX 编码）')
   ok(registry.decodeSessionDirName('junk') === '', '非 --xx-- 格式返回空串')
 }
 

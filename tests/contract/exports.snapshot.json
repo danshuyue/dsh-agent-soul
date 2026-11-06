@@ -152,12 +152,14 @@
     "resetDiaryCursor"
   ],
   "diary/files.js": [
+    "MAX_WAIT_MS",
     "findMissingDay",
     "maybePruneConversations",
     "waitForWrite",
     "writeDiaryFile"
   ],
   "diary/scheduler.js": [
+    "DIARY_TOTAL_BUDGET_MS",
     "__resetDiaryInFlightForTest",
     "diaryAgent",
     "regenerateDiary",
@@ -297,6 +299,7 @@
     "PICK_TIMEOUT_MS"
   ],
   "http/middleware.js": [
+    "NUMBER_RANGES",
     "isLoopbackRequest",
     "json",
     "privateDiaryView",
@@ -382,7 +385,8 @@
     "diarySessionDays",
     "listDiarySessions",
     "normalizeCwdParam",
-    "resolveCwd"
+    "resolveCwd",
+    "resolvePostCwd"
   ],
   "index.js": [
     "__resetForTest",

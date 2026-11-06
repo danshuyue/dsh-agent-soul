@@ -24,3 +24,5 @@
 - 2026-11-06T10:24:37.203Z · exports.snapshot.json · 2026-11-06 审计 P0/P1 修复新增三个公共符号：moodStepOf（心情步长统一入口，取代两处各写一遍的 Math.round/3）、normalizeCwdParam（?cwd= 的绝对路径+目录校验）、isSafeLocalName + SAFE_LOCAL_NAMES（项目人格文件名枚举，堵 P0-1 任意文件读取）。均为新增导出，无既有符号改名。
 
 - 2026-11-06T10:32:22.778Z · exports.snapshot.json · P2-15 新增导出 MIN_FIXED_TOKEN_LENGTH（固定令牌最短长度校验，审计报告指出 fixed 模式对长度零校验）。
+
+- 2026-11-06T13:53:02.408Z · exports.snapshot.json · R02 新增四个公共符号：NUMBER_RANGES（配置数值语义区间表，堵 H-1）、resolvePostCwd（写侧 cwd 唯一入口，堵 M-5）、DIARY_TOTAL_BUDGET_MS（日记总预算常量，堵 H-2）、MAX_WAIT_MS（waitForWrite 硬上限）。都是新增导出，无既有符号改名。

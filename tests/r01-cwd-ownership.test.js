@@ -110,14 +110,22 @@ console.log('①a 未登记的外部目录 → rejected-unowned')
 console.log('①b POST /register 同一目录 → 放行')
 // ---------------------------------------------------------------------------
 {
+  // 2026-11-06 R02 / M-5：`/register` 不再信任任意 body.cwd（否则归属校验自己开门）。
+  // 正常登记路径只剩「宿主会话给的目录」与「选择文件夹」两处，这里模拟前者。
+  const refused = await call('POST', '/register', { cwd: outside })
+  eq(refused.status, 400, '①b-0 未登记且非宿主给的目录 → 400（M-5）')
+
+  const { setFallbackCwd } = await import('../lib/tool.js')
+  setFallbackCwd(outside) // 模拟「当前会话的工作目录就是它」
   const reg = await call('POST', '/register', { cwd: outside })
-  eq(reg.status, 200, '①b-1 登记成功')
+  eq(reg.status, 200, '①b-1 宿主给的目录可以登记')
   const st = await stateOf(outside)
   eq(st.json?.workspace?.cwdSource, 'path', '①b-2 cwdSource = path')
   ok(String(st.json?.persona?.preview ?? '').includes('UNOWNED_PERSONA_SECRET'), '①b-3 登记后能正常读到 AGENT.md')
   eq(st.json?.persona?.available, true, '①b-4 available === true')
   ok(Array.isArray(st.json?.workspaces) && st.json.workspaces.length > 0, '①b-5 正常路径 workspaces 不受影响')
-  // 清掉登记，后面的 ①c / ADV 才能独立
+  // 清掉登记与 fallback，后面的 ①c / ADV 才能独立（setFallbackCwd 不接受空串）
+  setFallbackCwd(inside)
   const { registryPath } = await import('../lib/core/registry.js')
   writeFileSync(registryPath(), '{"version":1,"projects":[]}\n', 'utf8')
 }
@@ -204,7 +212,12 @@ console.log('ADV-8 条件 ① 不可用（清单为空）时，条件 ② 仍放
 console.log('ADV-6b 登记后大小写写法不同，也视为同一个工作区')
 // ---------------------------------------------------------------------------
 {
-  await call('POST', '/register', { cwd: outside })
+  // M-5 之后 `/register` 只认宿主给的目录 —— 这里再挂一次 fallback 才能登记
+  const { setFallbackCwd } = await import('../lib/tool.js')
+  setFallbackCwd(outside)
+  const reg = await call('POST', '/register', { cwd: outside })
+  eq(reg.status, 200, 'ADV-6b-0 宿主给的目录登记成功')
+  setFallbackCwd(inside)
   if (CASE_INSENSITIVE_FS) {
     const lower = await stateOf(outside.toLowerCase())
     eq(lower.json?.workspace?.cwdSource, 'path', 'ADV-6b 小写写法命中已登记工作区')

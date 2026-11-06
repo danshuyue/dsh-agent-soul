@@ -9,7 +9,13 @@
  */
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
+
+// 2026-11-06 CI 暴露：这两个 ADV 原来硬编码了 Windows 的 `\\` 与「大小写不敏感」，
+// 在 ubuntu-latest 上必然红 —— 不是实现的问题，是断言把平台当成了常量。
+// 尾随分隔符改用 path.sep；大小写只在 win32 上断言（Linux 的 `OUTSIDE` 是另一个
+// 不存在的路径，本来就该走 'rejected'）。
+const CASE_INSENSITIVE_FS = process.platform === 'win32'
 
 const sandbox = mkdtempSync(join(tmpdir(), 'soul-r01-cwd-home-'))
 process.env.DSH_HOME = sandbox
@@ -169,10 +175,16 @@ console.log('R2-d 其它路由在 rejected 时拿到空 cwd，不偷偷换目录
 console.log('ADV-5 尾随分隔符 / ADV-6 大小写 / ADV-7 DSH_HOME 父目录')
 // ---------------------------------------------------------------------------
 {
-  const withSlash = await stateOf(`${outside}\\`)
+  const withSlash = await stateOf(`${outside}${sep}`)
   eq(withSlash.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-5 带尾随分隔符与不带是同一个判定')
-  const upper = await stateOf(outside.toUpperCase())
-  eq(upper.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大小写不同不影响归属（未登记时一样拒绝）')
+  if (CASE_INSENSITIVE_FS) {
+    const upper = await stateOf(outside.toUpperCase())
+    eq(upper.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大小写不同不影响归属（未登记时一样拒绝）')
+  } else {
+    // Linux：大写是一个**另一个不存在的路径**，走的是 'rejected' 而不是归属判定
+    const upper = await stateOf(outside.toUpperCase())
+    eq(upper.json?.workspace?.cwdSource, 'rejected', 'ADV-6 大小写敏感平台上，大写路径按「路径不存在」拒绝')
+  }
   const parent = await stateOf(tmpdir())
   eq(parent.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-7 DSH_HOME 的父目录不能被前缀判定放行')
 }
@@ -193,9 +205,15 @@ console.log('ADV-6b 登记后大小写写法不同，也视为同一个工作区
 // ---------------------------------------------------------------------------
 {
   await call('POST', '/register', { cwd: outside })
-  const lower = await stateOf(outside.toLowerCase())
-  eq(lower.json?.workspace?.cwdSource, 'path', 'ADV-6b 小写写法命中已登记工作区')
-  const withSlash = await stateOf(`${outside}\\`)
+  if (CASE_INSENSITIVE_FS) {
+    const lower = await stateOf(outside.toLowerCase())
+    eq(lower.json?.workspace?.cwdSource, 'path', 'ADV-6b 小写写法命中已登记工作区')
+  } else {
+    // Linux：注册表里存的是原样路径，大小写变体是另一个路径 —— 不该命中
+    const lower = await stateOf(outside.toLowerCase())
+    eq(lower.json?.workspace?.cwdSource, 'rejected', 'ADV-6b 大小写敏感平台上，变体路径不命中登记表')
+  }
+  const withSlash = await stateOf(`${outside}${sep}`)
   eq(withSlash.json?.workspace?.cwdSource, 'path', 'ADV-5b 尾随分隔符命中已登记工作区')
 }
 

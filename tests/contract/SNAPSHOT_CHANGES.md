@@ -18,3 +18,5 @@
 - 2026-11-06T04:55:10.186Z · exports.snapshot.json · P12 新增 lib/retention.js 的 rotateArchiveIfNeeded 导出（归档分片，默认关闭）
 
 - 2026-11-06T05:44:05.724Z · exports.snapshot.json · P16 真拆：新增 lib/http/routes/*（7 文件）与 lib/host/runtime/*（12 文件），27 个路由 handler 与 6 个装配段从巨型主体搬出；六个公共门面与 host/runtime.js 的对外导出集合不变
+
+- 2026-11-06T06:13:16.561Z · behavior-golden.json · 行为 golden 改为固定 TZ=UTC：renderCard 头部按本地时区格式化，基线原来在 UTC+8 生成，CI 跑在 UTC 时哈希不同（长度相同、字节不同）导致首次推送即红灯。行为本身未变。

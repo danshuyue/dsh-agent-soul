@@ -17,6 +17,13 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { requireSnapshotReason } from './snapshot-policy.mjs'
 
+// 2026-11-06 修：renderCard 的头部是「更新：2026/11/5 20:00:00」——按**本地时区**格式化。
+// 基线在 Windows / UTC+8 上生成，CI 跑在 UTC，同一份代码算出来的哈希不同
+// （长度都是 2428、字节不同），第一次推上去 CI 就红了。
+// golden 要钉的是行为，不是构建机的时区，所以这里把 TZ 固定住。
+// 必须在 import 任何 lib 模块之前设置：模块顶层一旦取过时间就锁住了。
+process.env.TZ = 'UTC'
+
 if (!process.env.DSH_HOME) process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-golden-'))
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const imp = (p) => import(pathToFileURL(join(root, 'lib', p)).href)

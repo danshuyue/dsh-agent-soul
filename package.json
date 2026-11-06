@@ -1,6 +1,6 @@
 {
   "name": "dsh-agent-soul",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "type": "module",
   "description": "给 DSH 的 agent 一套会忘事的记忆、一份会变的人格和一份会起伏的心情：人格按小节合并（项目覆盖全局但不吃掉全局），记忆按人的规律衰减（清晰→模糊→只剩印象→遗忘），「心里惦记的事」让她的主动有连续性，心情跟着每轮对话自己判断、自己平复（不注入、无挂饰）。",
   "keywords": [
@@ -35,7 +35,7 @@
     "prepack": "npm test",
     "build:client": "node tools/build-client.mjs",
     "sync:host": "node tools/build-client.mjs && node tools/sync.mjs",
-    "test": "node tools/build-client.mjs && node tests/r1-maintain-persist.test.js && node tests/r16-asset-uri.test.js && node tests/s1-hotfix.test.js && node tests/extract.test.js && node tests/write-failure.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/diary-new-path.test.js && node tests/diary-complete.test.js && node tests/notes.test.js && node tests/diary-tool.test.js && node tests/api-auth.test.js && node tests/memory.test.js && node tests/memory-integrity.test.js && node tests/memory-near-dupe.test.js && node tests/recall-dedupe.test.js && node tests/recall-visibility.test.js && node tests/host-probe.test.js && node tests/secrets-judge.test.js && node tests/tone.test.js && node tests/threads.test.js && node tests/recent-context.test.js && node tests/first-turn.test.js && node tests/log-rotate.test.js && node tests/health.test.js && node tests/inject.test.js && node tests/sticky.test.js && node tests/echo.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/owner-identity.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/session-title.test.js && node tests/attest.test.js && node tests/smoke.test.js && node tests/client.test.js && node tests/suite-manifest.test.js && node tests/s2-hardening.test.js && node tests/llm-stream-timeout.test.js && node tests/post-diary-api.test.js && node tests/retention.test.js && node tests/save-state-failure.test.js && node tests/card-dedupe.test.js && node tests/scope-routing.test.js",
+    "test": "node tools/build-client.mjs && node tests/r1-maintain-persist.test.js && node tests/r16-asset-uri.test.js && node tests/r6-config-validation.test.js && node tests/s1-hotfix.test.js && node tests/extract.test.js && node tests/write-failure.test.js && node tests/refine.test.js && node tests/goal-revive.test.js && node tests/archive.test.js && node tests/diary.test.js && node tests/diary-new-path.test.js && node tests/diary-complete.test.js && node tests/notes.test.js && node tests/diary-tool.test.js && node tests/api-auth.test.js && node tests/memory.test.js && node tests/memory-integrity.test.js && node tests/memory-near-dupe.test.js && node tests/recall-dedupe.test.js && node tests/recall-visibility.test.js && node tests/host-probe.test.js && node tests/secrets-judge.test.js && node tests/tone.test.js && node tests/threads.test.js && node tests/recent-context.test.js && node tests/first-turn.test.js && node tests/log-rotate.test.js && node tests/health.test.js && node tests/inject.test.js && node tests/sticky.test.js && node tests/echo.test.js && node tests/mood.test.js && node tests/mood-digest.test.js && node tests/owner-identity.test.js && node tests/persona.test.js && node tests/purpose.test.js && node tests/emotion-purpose.test.js && node tests/registry.test.js && node tests/session-title.test.js && node tests/attest.test.js && node tests/smoke.test.js && node tests/client.test.js && node tests/suite-manifest.test.js && node tests/s2-hardening.test.js && node tests/llm-stream-timeout.test.js && node tests/post-diary-api.test.js && node tests/retention.test.js && node tests/save-state-failure.test.js && node tests/card-dedupe.test.js && node tests/scope-routing.test.js",
     "test:s1": "node tests/s1-hotfix.test.js",
     "test:s2": "node tests/s2-hardening.test.js",
     "test:llm-timeout": "node tests/llm-stream-timeout.test.js",
@@ -79,7 +79,8 @@
     "test:client": "node tools/build-client.mjs && node tests/client.test.js",
     "sync": "node tools/build-client.mjs",
     "test:r1-persist": "node tests/r1-maintain-persist.test.js",
-    "test:r16-uri": "node tests/r16-asset-uri.test.js"
+    "test:r16-uri": "node tests/r16-asset-uri.test.js",
+    "test:r6-config": "node tests/r6-config-validation.test.js"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1"

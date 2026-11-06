@@ -555,8 +555,9 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 | `diarySummarizeTimeoutMs` | `30000` | 生成调用超时 |
 | `conversationRetentionDays` | `0` | 对话流水保留最近几天。**0 = 永不自动删除**（默认）。设了值建议 ≥ 30，至少 ≥ 7（补写会追溯 7 天），否则那天补不回来 |
 | `conversationMaxTotalBytes` | `0` | 对话流水目录总大小上限（字节）。**0 = 不限**（默认）。超出时从最旧的整天 `.jsonl` 开始删，今天永不删 |
+| `archiveMaxBytes` | `0` | 归档档案体积上限（字节）。**0 = 不启用分片**（默认）。超过时把 `archive.jsonl` 另存为带时间戳的分片，**只改名、不删除任何文件**；`recallArchived` 会连分片一起查回。分片本身不会自动清理，需要人工整理 |
 
-> 保留期只处理 `<DSH_HOME>/agents/diary/conversations/YYYY-MM-DD.jsonl` 这一种严格命名的整天文件；`.bak` / `.corrupt-*` / 日记正文 / 笔记 / 密钥 / `archive.jsonl` 一律不碰。机制见 `lib/retention.js`，改配置后一天最多检查一次。**升级后默认一个文件都不会被删**。
+> 保留期只处理 `<DSH_HOME>/agents/diary/conversations/YYYY-MM-DD.jsonl` 这一种严格命名的整天文件；`.bak` / `.corrupt-*` / 日记正文 / 笔记 / 密钥一律不碰。机制见 `lib/retention.js`，改配置后一天最多检查一次。**升级后默认一个文件都不会被删**。归档分片是另一套机制（`archiveMaxBytes`），由 `maintain()` 检查，同样默认关闭。
 
 记忆引擎参数（`recentDays` / `fuzzyAfterDays` / `forgetAfterDays` / `minOwnerImportance` / `maxRecords` / `warnChars` / `autoCompact` / `maxPerTick` / `dailyHour` / `autoImportanceEvent` / `autoImportanceDefault`）也都在 `persona.json` 里，默认值只在 `lib/memory.js` 的 `DEFAULTS` 定义一次，全部有注释说明为什么是这个值。
 
@@ -607,7 +608,7 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 <DSH_HOME>/agents/soul.log                       日志（超 2MB 归档成 soul.log.<时间戳>，留 5 份）
 ```
 
-> 对话流水**默认永不自动清理**（`conversationRetentionDays` / `conversationMaxTotalBytes` 默认都是 0）。它是日记和补写的唯一素材来源，删掉以后那一天就永远补不回来。只有你显式设了保留天数或体积上限，才会按整天文件删除，且今天/未来永远保留；删之前会逐条写进 `soul.log`。`archive.jsonl` 是「忘了也能查回来」的承诺，不参与任何自动清理。
+> 对话流水**默认永不自动清理**（`conversationRetentionDays` / `conversationMaxTotalBytes` 默认都是 0）。它是日记和补写的唯一素材来源，删掉以后那一天就永远补不回来。只有你显式设了保留天数或体积上限，才会按整天文件删除，且今天/未来永远保留；删之前会逐条写进 `soul.log`。`archive.jsonl` 是「忘了也能查回来」的承诺，**永不自动删除**：默认不参与任何清理；只有显式设了 `archiveMaxBytes` 才会按体积另存为 `archive.jsonl.<时间戳>` 分片，旧内容完整保留，查回时会一并扫描分片。分片文件需要你自己定期整理，插件不替你删。
 
 记忆卡旁边可能还有两种文件：`global.json.corrupt-<时间戳>`（读坏时的原文备份，数据没丢）和 `global.json.bak`（上一代）。
 
@@ -657,7 +658,7 @@ grep "语气注入"    ~/.dsh/agents/soul.log | tail -5   # 心情有没有真�
 
 **她突然什么都不记得了**（最阴的一种）：插件读的全是 DSH 的内部字段（事件正文在 `data.content`、`session.snapshotEvents`、`header.origin`）。宿主一升级这些就可能变，而变了**不会报错**——扫描照跑、候选恒 0、日志一句不说。
 
-所以每个会话第一轮会做一次形状自检：`grep "\[host\]"` 有 ⚠️ 就是没通过，同时概览页会亮红，现场留在 `~/.dsh/agents/host-probe.json`。自检的判据是「能不能真的抠出正文」，不是「函数在不在」——上一回事故里函数全都在，只是返回了空串。真发生了就去改 `lib/host.js` 的 `firstTextOf` 和 `lib/extract.js` 的 `messageContentOf`。
+所以每个会话第一轮会做一次形状自检：`grep "\[host\]"` 有 ⚠️ 就是没通过，同时概览页会亮红，现场留在 `~/.dsh/agents/host-probe.json`。自检的判据是「能不能真的抠出正文」，不是「函数在不在」——上一回事故里函数全都在，只是返回了空串。真发生了就去改 `lib/core/host.js` 的 `firstTextOf` 和 `lib/extract.js` 的 `messageContentOf`。
 
 **记忆卡读坏了**：原文件会被改名成 `global.json.corrupt-<时间戳>` 留在原地（数据不会蒸发），概览页亮红；只有当改名都失败时才会进入只读模式，这时新的记忆暂时写不进去，但旧文件不会被空卡盖掉。处理完把 `.corrupt-` 那份捡回来人工合并即可。
 
@@ -695,6 +696,8 @@ npm run test:s2       # S2/S3 加固回归
 npm run test:llm-timeout   # P2-11 流超时与迭代器关闭（33 条断言）
 npm run test:post-diary    # POST /diary 全链路：HTTP → llm → 落盘（24 条断言）
 npm run test:retention     # 对话流水保留期（29 条断言）
+npm run test:archive-rotate # 归档分片与查回（19 条断言）
+npm run test:contracts     # 只跑 tests/contract/ 下的契约门禁与固化探针
 npm run bench:recall  # 可复现召回基准；--scale 10000 --runs 3 --json 看规模曲线
 npm run test:memory   # 只跑记忆引擎
 npm run test:diary    # 只跑日记
@@ -705,13 +708,43 @@ npm run sync:host     # 先构建，再同步到 DSH 宿主目录（会写文件
 
 单测只碰纯函数，用临时目录，不动真实的 `~/.dsh`。建议 `DSH_HOME` 指向临时目录跑全量。
 
-**发布门禁（2026-11-05）**：`npm pack` / `npm publish` 会触发 `prepack → npm test`；构建脚本拼接后会真做语法解析、扫描跨片段重名与 ESM 关键字，任一失败都非零退出且**不写盘**。`.github/workflows/ci.yml` 在 push / PR 上跑全量测试并校验 `lib/client.js` 与源码同步（`.gitattributes` 统一了生成物行尾，避免 Windows 下虚假的 `M` 状态）。
+**发布门禁（2026-11-05 建立，2026-11-06 扩充）**：`npm pack` / `npm publish` 会触发 `prepack → npm test`；构建脚本拼接后会真做语法解析、扫描跨片段重名，并核对**跨片段符号表**（`tools/client-symbols.mjs`：片段靠隐式全局互调，搬走/改名一个函数会静默 `ReferenceError`），任一失败都非零退出且**不写盘**。`.github/workflows/ci.yml` 在 push / PR 上跑全量测试、单独跑一遍 `test:contracts`，并校验 `lib/client.js` 与 `tests/contract/` 快照都和提交内容一致（`.gitattributes` 统一了生成物行尾，避免 Windows 下虚假的 `M` 状态）。
+
+**契约门禁**：`tests/contract/` 下有导出名快照、依赖图禁环、行为 golden 哈希、宿主入口清单、快照变更策略，以及从 2026-11-05 审查探针固化来的 API 边界 / 写盘失败 / 密钥存储回归。更新**已有**快照必须写明 `SOUL_SNAPSHOT_REASON`，理由会自动记进 `tests/contract/SNAPSHOT_CHANGES.md`，防止用「刷基线」消掉一条红。
 
 `npm run sync` 仍然只是「构建产物」（历史命名，保留兼容）；真正写宿主目录请用 `npm run sync:host -- --dry` 先看，再去掉 `--dry`。
 
 **召回基准（2026-11-05）**：`npm run bench:recall` 用内置合成卡 + 固定时钟，不读真实 `~/.dsh`，两次运行指标逐字节一致，改权重前后可以直接比数字。`--scale 10000 --runs 3 --json` 量化全卡扫描的规模曲线（本机实测 16 条约 3ms / 1 万条约 306ms）。`--card <path>` 仍可读真实卡，但只报耗时、不报命中率（期望片段与真实卡不对应，报了就是骗人）。它不进 `npm test` —— 权重一改指标本来就该变，不是回归断言。
 
-**LLM 流超时的边界**：提炼 / 心情 / 日记四处调用统一走 `lib/llm-stream.js`。超时后插件侧按时降级、不再发起下一次 `next()`，并主动请求关闭迭代器。但要说清楚：卡在 `next()` 内部的 async generator 无法被立即关闭（`return()` 会排队，`finally` 不执行），底层 HTTP 请求是否真 abort 取决于宿主；插件侧预留了 `signal` 钩子，宿主支持后自动生效。这不是「真取消」，只是把后台空转的流收住了。
+**LLM 流超时的边界**：提炼 / 心情 / 日记四处调用统一走 `lib/core/llm-stream.js`。超时后插件侧按时降级、不再发起下一次 `next()`，并主动请求关闭迭代器。但要说清楚：卡在 `next()` 内部的 async generator 无法被立即关闭（`return()` 会排队，`finally` 不执行），底层 HTTP 请求是否真 abort 取决于宿主；插件侧预留了 `signal` 钩子，宿主支持后自动生效。这不是「真取消」，只是把后台空转的流收住了。
+
+### 服务端源码是分层的（2026-11-06 重构）
+
+`lib/index.js` 仍是宿主唯一入口，但实现已按职责落到子目录；原来的六个根层文件**永久保留为公共 API 门面**（只做 re-export），宿主与测试统一从这里 import，内部模块可任意重组而门面路径不变。导出集合由 `tests/contract/exports.snapshot.test.js` 钉住，改动需带 `SOUL_SNAPSHOT_REASON` 留痕。
+
+> **当前边界（2026-11-06，P16 后）**：六份原大文件的实现都按职责落到了子目录。`lib/http/server.js` 只留中间件链、28 条分派与 `/pick`，27 个 handler 在 `http/routes/`；`lib/host/runtime.js` 是装配入口门面，`applyInner` 只做探测与依次注册，6 段注入分别在 `host/runtime/segment-*.js`。两处拆分都先补了行为级断言（27 条路由状态码 + 六段注册顺序），再由四条契约门禁守住。
+
+```
+lib/
+  index.js  api.js  diary.js  memory.js  store.js  mood.js   公共 API 门面
+  core/       零业务依赖的基础件（paths.js / env.js 仍在根层）
+  memory/     记忆：常量 / 信号 / 配置 / 评分 / 卡 / 归档 IO / 变更 / 召回 / 渲染
+  state/      缓存与配置 / 卡读写 / 心情状态 / 维护编排 / 渲染
+  mood/       纯计算 / 判定 prompt / 会话解析 / 模型判定 / 宿主钩子 / 摘要
+  diary/      时间与完整性 / 流水 / 拼装 / 文件 / 调度
+  http/       常量 / 中间件 / 会话 / 服务与路由
+  host/       元信息 / 运行时装配
+  client/     浏览器片段（单 bundle 拼接机制不变）
+  client.js   由 tools/build-client.mjs 生成的唯一浏览器入口
+```
+
+三条契约门禁在 `tests/contract/`，每批改动都会挡住走偏的重构：
+
+- `exports.snapshot.test.js` —— 每个模块的导出名集合冻结，少一个/改一个名字直接红；
+- `dep-graph.test.js` —— **零模块环**、core 不反向依赖业务层、memory/ 不回指门面或 store；
+- `behavior-golden.test.js` —— 固定时钟 + 合成卡跑渲染/召回/衰减/日记拼装，输出 sha256 冻住，搬家不许改行为。
+
+`npm test` 现在走 `tools/run-tests.mjs`：递归收集 `tests/**/*.test.js` 并**串行**执行（自建 runner 与 `node:test` 两套并存，并发会踩临时目录）。新增测试文件不再需要手工登记长串。
 
 ### 浏览器半侧是拆开写的，`lib/client.js` 是生成物
 

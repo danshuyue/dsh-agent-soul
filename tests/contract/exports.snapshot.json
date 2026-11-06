@@ -1,0 +1,827 @@
+{
+  "api.js": [
+    "API_PREFIX",
+    "ASSET_PREFIX",
+    "isLoopbackRequest",
+    "pickFolder",
+    "privateDiaryView",
+    "registerApi",
+    "registerAssets",
+    "shouldAllowApiRequest",
+    "validateConfigEntry"
+  ],
+  "attest.js": [
+    "__resetAttestationForTest",
+    "attestationState",
+    "recordAssembly"
+  ],
+  "core/api-token.js": [
+    "SESSION_ROUTE",
+    "TOKEN_HEADER",
+    "__resetApiTokenForTest",
+    "apiTokenMode",
+    "checkApiRateLimit",
+    "checkSessionRateLimit",
+    "currentApiToken",
+    "isAllowedApiHost",
+    "issueSessionToken",
+    "verifyApiToken"
+  ],
+  "core/archive.js": [
+    "archivedSessionIds",
+    "invalidateArchiveCache",
+    "isArchived"
+  ],
+  "core/diary-pick.js": [
+    "pickConversation",
+    "scoreEntry"
+  ],
+  "core/echo.js": [
+    "ECHO_LIMITS",
+    "__echoStatsForTest",
+    "clearAllEchoes",
+    "clearEcho",
+    "pushEcho",
+    "takeEcho"
+  ],
+  "core/facts.js": [
+    "CONFIG_FACTS",
+    "MEMORY_FACTS"
+  ],
+  "core/host.js": [
+    "HOST_PROBE_FILE",
+    "__resetHostProbeForTest",
+    "firstLiveSeqOf",
+    "firstTextOf",
+    "holderOf",
+    "hostProbeState",
+    "isSubagentAgent",
+    "probeHost",
+    "probeHostOnce",
+    "snapshotOf"
+  ],
+  "core/llm-stream.js": [
+    "__llmStreamDefaultsForTest",
+    "consumeLlmStream"
+  ],
+  "core/prompt-guard.js": [
+    "DATA_BOUNDARY_POLICY",
+    "neutralizeUntrusted",
+    "wrapUntrusted"
+  ],
+  "core/registry.js": [
+    "decodeSessionDirName",
+    "listWorkspaces",
+    "readRegistry",
+    "readWorkspaceStore",
+    "registerProject",
+    "registryPath",
+    "sessionsRoot",
+    "workspaceStorePath"
+  ],
+  "core/secrets.js": [
+    "__resetSecretsForTest",
+    "deleteSecret",
+    "loadSecret",
+    "saveSecret",
+    "secretInfo",
+    "secretPath",
+    "secretsDir"
+  ],
+  "diary-tool.js": [
+    "checkDiaryDate",
+    "registerDiaryTool"
+  ],
+  "diary.js": [
+    "__resetDiaryInFlightForTest",
+    "buildMoodBlocks",
+    "collectForDiary",
+    "composeDiaryText",
+    "composePrivateMessage",
+    "composePublicMessage",
+    "compressFeedText",
+    "diaryAgent",
+    "diaryDayBoundaries",
+    "diaryIsCompleteFor",
+    "diaryWindowOf",
+    "digestDiaries",
+    "findMissingDay",
+    "parseDateLocal",
+    "readConversationRows",
+    "readDiaryConversations",
+    "readRecentChat",
+    "readRecentDiaries",
+    "regenerateDiary",
+    "resetDiaryCursor",
+    "runCatchUp",
+    "runDiaryOnce",
+    "scheduleMinutes",
+    "startDiaryTimer",
+    "summarizeConversations",
+    "todayKey",
+    "waitForWrite",
+    "writeDiaryFile",
+    "yesterdayKey"
+  ],
+  "diary/completion.js": [
+    "diaryDayBoundaries",
+    "diaryIsCompleteFor",
+    "parseDateLocal",
+    "scheduleMinutes",
+    "todayKey",
+    "yesterdayKey"
+  ],
+  "diary/compose.js": [
+    "buildMoodBlocks",
+    "composeDiarySetup",
+    "composeDiaryText",
+    "composePrivateMessage",
+    "composePublicMessage",
+    "diaryWindowOf",
+    "digestDiaries",
+    "readRecentDiaries",
+    "summarizeConversations"
+  ],
+  "diary/feed.js": [
+    "collectForDiary",
+    "compressFeedText",
+    "readConversationRows",
+    "readDiaryConversations",
+    "readRecentChat",
+    "resetDiaryCursor"
+  ],
+  "diary/files.js": [
+    "findMissingDay",
+    "maybePruneConversations",
+    "waitForWrite",
+    "writeDiaryFile"
+  ],
+  "diary/scheduler.js": [
+    "__resetDiaryInFlightForTest",
+    "diaryAgent",
+    "regenerateDiary",
+    "runCatchUp",
+    "runDiaryOnce",
+    "startDiaryTimer"
+  ],
+  "env.js": [
+    "LOG_FILE",
+    "__resetNoteThrottleForTest",
+    "appendLogLine",
+    "cardWriteFailureCount",
+    "countCardWriteFailure",
+    "note",
+    "noteThrottled",
+    "resetCardWriteFailureCount",
+    "serviceOf"
+  ],
+  "extract.js": [
+    "autoMemoryRejectReason",
+    "collectCandidates",
+    "commitIngestBatch",
+    "currentUserText",
+    "eventsSince",
+    "failIngestBatch",
+    "ingestCandidates",
+    "ingestFailureCount",
+    "isEchoOfAssistant",
+    "isHumanEvent",
+    "isOwnerMessage",
+    "isPromotable",
+    "isSubagentSession",
+    "maxSeqOf",
+    "messageContentOf",
+    "minImportanceForKind",
+    "resetCursor",
+    "resetIngestFailureCount",
+    "sourceKindOf",
+    "textOfContent",
+    "unwrapBridgeText",
+    "worthRemembering"
+  ],
+  "health.js": [
+    "__resetRefinePendingForTest",
+    "markRefineQueued",
+    "markRefineSettled",
+    "refinePendingCount",
+    "renderHealthLine",
+    "writeDailyHealth"
+  ],
+  "host/meta.js": [
+    "ECHO_LINE_MAX_CHARS",
+    "ECHO_SECTION_MAX_CHARS",
+    "MAINTAIN_INTERVAL_MS",
+    "PERSONA_REFRESH_TURNS",
+    "RECALL_SEEN_MAX",
+    "STICKY_MAX_SESSIONS",
+    "STICKY_NOTE_INTERVAL_MS",
+    "STICKY_TOPIC_JACCARD",
+    "inject",
+    "name"
+  ],
+  "host/runtime.js": [
+    "__resetForTest",
+    "__stickyStatsForTest",
+    "apply",
+    "applyMoodDelta",
+    "cardsFor",
+    "isFirstTurnOfSession",
+    "openGoals",
+    "satisfyDrives",
+    "savePurposeState",
+    "summarize"
+  ],
+  "host/runtime/entry.js": [
+    "__resetForTest",
+    "__stickyStatsForTest",
+    "apply"
+  ],
+  "host/runtime/inject.js": [
+    "recallForTurn",
+    "registerToneForTurn",
+    "renderEchoSection",
+    "renderRecentSection"
+  ],
+  "host/runtime/refine.js": [
+    "ingestRaw",
+    "noteMissingOwner",
+    "queueRefine"
+  ],
+  "host/runtime/segment-data-policy.js": [
+    "registerDataPolicySegment"
+  ],
+  "host/runtime/segment-memory.js": [
+    "registerMemorySegment"
+  ],
+  "host/runtime/segment-mood.js": [
+    "registerMoodHookSegment"
+  ],
+  "host/runtime/segment-notes.js": [
+    "registerNotesSegment"
+  ],
+  "host/runtime/segment-persona.js": [
+    "registerPersonaSegment"
+  ],
+  "host/runtime/segment-purpose.js": [
+    "registerPurposeSegment"
+  ],
+  "host/runtime/state.js": [
+    "maintainClock",
+    "personaInjectAtBySession",
+    "recallSeenBySession",
+    "stickyRecallBySession",
+    "turnCursorBySession"
+  ],
+  "host/runtime/tick.js": [
+    "tick"
+  ],
+  "host/runtime/turns.js": [
+    "hasHumanInputThisTurn",
+    "isDegenerateQuery",
+    "isFirstTurnOfSession",
+    "jaccardOf",
+    "memoPerStep",
+    "noteStickyReuse",
+    "shouldInjectPersona",
+    "stickyStateFor"
+  ],
+  "http/constants.js": [
+    "API_PREFIX",
+    "ASSETS_DIR",
+    "ASSET_PREFIX",
+    "CONFIG_NAME_RE",
+    "CONFIG_STRING_MAX",
+    "FACE_ASSETS",
+    "MAX_BODY",
+    "PICK_TIMEOUT_MS"
+  ],
+  "http/middleware.js": [
+    "isLoopbackRequest",
+    "json",
+    "privateDiaryView",
+    "readBody",
+    "shouldAllowApiRequest",
+    "validateConfigEntry"
+  ],
+  "http/routes/diary.js": [
+    "handleGetDiaryList",
+    "handleGetDiaryPrivate",
+    "handleGetDiaryRead",
+    "handleGetDiarySessions",
+    "handlePostDiary",
+    "handlePostDiaryBind",
+    "handlePostDiaryUnbind"
+  ],
+  "http/routes/index.js": [
+    "handleGetAttestation",
+    "handleGetDiaryList",
+    "handleGetDiaryPrivate",
+    "handleGetDiaryRead",
+    "handleGetDiarySessions",
+    "handleGetMemory",
+    "handleGetMood",
+    "handleGetNotesList",
+    "handleGetNotesRead",
+    "handleGetPersona",
+    "handleGetState",
+    "handlePostConfig",
+    "handlePostDiary",
+    "handlePostDiaryBind",
+    "handlePostDiaryUnbind",
+    "handlePostGoal",
+    "handlePostMaintain",
+    "handlePostMemory",
+    "handlePostMoodDecay",
+    "handlePostMoodReset",
+    "handlePostNotesDelete",
+    "handlePostNotesRename",
+    "handlePostNotesSave",
+    "handlePostOpen",
+    "handlePostPersona",
+    "handlePostRegister",
+    "handlePostSecret"
+  ],
+  "http/routes/memory.js": [
+    "handleGetMemory",
+    "handlePostGoal",
+    "handlePostMemory"
+  ],
+  "http/routes/mood.js": [
+    "handleGetMood",
+    "handlePostMoodDecay",
+    "handlePostMoodReset"
+  ],
+  "http/routes/notes.js": [
+    "handleGetNotesList",
+    "handleGetNotesRead",
+    "handlePostNotesDelete",
+    "handlePostNotesRename",
+    "handlePostNotesSave"
+  ],
+  "http/routes/persona.js": [
+    "handleGetPersona",
+    "handlePostPersona"
+  ],
+  "http/routes/system.js": [
+    "handleGetAttestation",
+    "handleGetState",
+    "handlePostConfig",
+    "handlePostMaintain",
+    "handlePostOpen",
+    "handlePostRegister",
+    "handlePostSecret"
+  ],
+  "http/server.js": [
+    "pickFolder",
+    "registerApi",
+    "registerAssets"
+  ],
+  "http/sessions.js": [
+    "currentSessionIdOf",
+    "diarySessionDays",
+    "listDiarySessions",
+    "resolveCwd"
+  ],
+  "index.js": [
+    "__resetForTest",
+    "__stickyStatsForTest",
+    "apply",
+    "applyMoodDelta",
+    "cardsFor",
+    "inject",
+    "isFirstTurnOfSession",
+    "name",
+    "openGoals",
+    "satisfyDrives",
+    "savePurposeState",
+    "summarize"
+  ],
+  "memory.js": [
+    "CLARITY_LABEL",
+    "CLARITY_ORDER",
+    "DAY_MS",
+    "DEFAULTS",
+    "KIND_LABEL",
+    "MEMORY_KINDS",
+    "MEMORY_VERSION",
+    "addRecord",
+    "applyDecay",
+    "classifyScope",
+    "compactCard",
+    "corruptInfoOf",
+    "createCard",
+    "daysSince",
+    "emotionScore",
+    "forgetRecord",
+    "isCardReadonly",
+    "loadCard",
+    "makeArchiver",
+    "mergeCards",
+    "normalizeCard",
+    "normalizeConfig",
+    "normalizeKind",
+    "ownerImportant",
+    "recall",
+    "recallArchived",
+    "recallQueryTerms",
+    "redact",
+    "relatedScore",
+    "renderCard",
+    "renderRecallOnly",
+    "renderRecalledBlock",
+    "saveCard",
+    "scoreRecord",
+    "setPinned",
+    "status",
+    "targetClarity",
+    "touchRecords"
+  ],
+  "memory/card-io.js": [
+    "corruptInfoOf",
+    "isCardReadonly",
+    "loadCard",
+    "makeArchiver",
+    "recallArchived",
+    "saveCard"
+  ],
+  "memory/card.js": [
+    "createCard",
+    "legacyKindOf",
+    "mergeCards",
+    "normalizeCard"
+  ],
+  "memory/config.js": [
+    "normalizeConfig"
+  ],
+  "memory/constants.js": [
+    "CLARITY_LABEL",
+    "CLARITY_ORDER",
+    "DAY_MS",
+    "DEFAULTS",
+    "KIND_LABEL",
+    "MEMORY_KINDS",
+    "MEMORY_VERSION",
+    "normalizeKind"
+  ],
+  "memory/mutation.js": [
+    "addRecord",
+    "applyDecay",
+    "classifyScope",
+    "compactCard",
+    "daysSince",
+    "forgetRecord",
+    "setPinned",
+    "touchRecords"
+  ],
+  "memory/recall.js": [
+    "recall",
+    "recallQueryTerms",
+    "relatedScore"
+  ],
+  "memory/render.js": [
+    "recordLine",
+    "renderCard",
+    "renderRecallOnly",
+    "renderRecalledBlock",
+    "status"
+  ],
+  "memory/scoring.js": [
+    "ownerImportant",
+    "scoreRecord",
+    "targetClarity"
+  ],
+  "memory/signals.js": [
+    "CONFLICT_RE",
+    "EPHEMERAL_RE",
+    "FACT_RE",
+    "FIRST_RE",
+    "PROMISE_RE",
+    "SELF_RE",
+    "clamp",
+    "dateKey",
+    "emotionScore",
+    "iso",
+    "redact",
+    "timeOf"
+  ],
+  "mood.js": [
+    "DIMS",
+    "DIM_FULL",
+    "EXTERNAL_TRIGGER",
+    "INJECTED_CONTEXT",
+    "MOOD_STEP_DIVISOR",
+    "SELF_SPEAK",
+    "TIMELINE_CAP",
+    "applyDelta",
+    "blankMoodState",
+    "buildJudgeSystem",
+    "clockOf",
+    "decayMood",
+    "dimPercent",
+    "dimWord",
+    "displayDimPercents",
+    "displayDims",
+    "fullTextOf",
+    "isMachineSource",
+    "judgeMood",
+    "lastAssistantTextOf",
+    "lastUserTurnOf",
+    "moodDigest",
+    "moodFace",
+    "moodLabel",
+    "normMoodState",
+    "normReason",
+    "normalizeMoodConfig",
+    "observeAgent",
+    "observedCount",
+    "parseDelta",
+    "renderMoodDigest",
+    "sessionModelOf",
+    "stripBridgePrefix",
+    "textOfMessage",
+    "topDims",
+    "unobserveAll"
+  ],
+  "mood/core.js": [
+    "DIMS",
+    "DIM_FULL",
+    "MOOD_STEP_DIVISOR",
+    "TIMELINE_CAP",
+    "applyDelta",
+    "blankMoodState",
+    "decayMood",
+    "dimPercent",
+    "dimWord",
+    "displayDimPercents",
+    "displayDims",
+    "moodFace",
+    "moodLabel",
+    "normMoodState",
+    "normReason",
+    "normalizeMoodConfig",
+    "parseDelta",
+    "topDims"
+  ],
+  "mood/digest.js": [
+    "clockOf",
+    "moodDigest",
+    "renderMoodDigest"
+  ],
+  "mood/hooks.js": [
+    "observeAgent",
+    "observedCount",
+    "unobserveAll"
+  ],
+  "mood/judge.js": [
+    "judgeMood"
+  ],
+  "mood/prompt.js": [
+    "EXTERNAL_TRIGGER",
+    "INJECTED_CONTEXT",
+    "MACHINE_PREFIXES",
+    "MACHINE_SOURCES",
+    "SELF_SPEAK",
+    "buildJudgeSystem",
+    "talkSupplement",
+    "workSupplement"
+  ],
+  "mood/session.js": [
+    "fullTextOf",
+    "isMachineSource",
+    "lastAssistantTextOf",
+    "lastUserTurnOf",
+    "sessionModelOf",
+    "stripBridgePrefix",
+    "textOfMessage"
+  ],
+  "notes.js": [
+    "MAX_NOTES",
+    "MAX_NOTE_CHARS",
+    "MAX_TITLE_CHARS",
+    "__resetNotesCacheForTest",
+    "appendNote",
+    "cleanTitle",
+    "deleteNote",
+    "listNotes",
+    "loadIndex",
+    "readNote",
+    "reconcile",
+    "renameNote",
+    "renderNotesBlock",
+    "saveIndex",
+    "summaryOf",
+    "writeNote"
+  ],
+  "paths.js": [
+    "DIARY_DATE_RE",
+    "HOME",
+    "__setAtomicWriteFailureForTest",
+    "agentsDir",
+    "archivePath",
+    "atomicWrite",
+    "configPath",
+    "diaryConversationsDir",
+    "diaryDir",
+    "diaryJsonlPath",
+    "diaryPrivateDir",
+    "diaryPrivatePath",
+    "diaryPublicDir",
+    "diaryPublicPath",
+    "displayNameFor",
+    "dshHome",
+    "ensureDirs",
+    "exists",
+    "globalMemoryPath",
+    "globalPersonaPath",
+    "healthStatePath",
+    "isDiaryDateKey",
+    "memoryDir",
+    "memoryProjectsDir",
+    "moodDir",
+    "moodPath",
+    "normalizePathKey",
+    "notePath",
+    "notesDir",
+    "notesIndexPath",
+    "notesTrashDir",
+    "projectMemoryPath",
+    "projectsDir",
+    "readText",
+    "shortHash",
+    "slugFor"
+  ],
+  "persona.js": [
+    "LOCAL_NAMES",
+    "MAX_INJECT_CHARS",
+    "cleanPersona",
+    "composePersona",
+    "defuseTemplate",
+    "localPersonaPath",
+    "mergeSections",
+    "resolveSources",
+    "splitSections",
+    "storedProjectPersonaPath",
+    "stripComments",
+    "tidy"
+  ],
+  "purpose.js": [
+    "BASE_DRIVES",
+    "EMOTION_AFFINITY",
+    "GOAL_KINDS",
+    "NEEDS",
+    "NEED_LABEL",
+    "PURPOSE_VERSION",
+    "addGoal",
+    "applyEmotionToDrives",
+    "closeGoal",
+    "createState",
+    "deriveDrives",
+    "dominantNeed",
+    "emotionTargets",
+    "markServed",
+    "mineGoals",
+    "moodOf",
+    "needAffinity",
+    "normalizeState",
+    "openGoals",
+    "renderPurpose",
+    "satisfyDrives",
+    "settleServed",
+    "sharesPhrase",
+    "summarize"
+  ],
+  "refine.js": [
+    "buildRefineSystem",
+    "buildRefineUser",
+    "parseRefined",
+    "refineCandidates"
+  ],
+  "retention.js": [
+    "DAY_MS",
+    "dateKeyOf",
+    "planConversationPrune",
+    "pruneConversations",
+    "rotateArchiveIfNeeded"
+  ],
+  "session-title.js": [
+    "EMPTY_SESSION_TITLE",
+    "decodeZstdFrames",
+    "findSessionLog",
+    "readSessionMeta",
+    "readTitleFromLog",
+    "titleForSession"
+  ],
+  "state/cache.js": [
+    "CONFIG_FILE",
+    "DEFAULT_CONFIG",
+    "PURPOSE_FILE",
+    "cardCache",
+    "loadCached",
+    "loadConfig",
+    "moodCache",
+    "mtimeOf",
+    "purposeState",
+    "resetCaches",
+    "saveConfig",
+    "savePurposeState"
+  ],
+  "state/cards.js": [
+    "cardsFor",
+    "globalCard",
+    "memoryHealth",
+    "projectCard",
+    "saveGlobalCard",
+    "saveProjectCard",
+    "writeMemory"
+  ],
+  "state/file-cache.js": [
+    "clearAll",
+    "invalidate",
+    "mtimeOf",
+    "readThrough",
+    "settle"
+  ],
+  "state/maintain.js": [
+    "maintain",
+    "writeAutoMemories"
+  ],
+  "state/mood-state.js": [
+    "allMoodStates",
+    "applyMoodDelta",
+    "decayMoodFor",
+    "migrateMoodFiles",
+    "moodState",
+    "moodStats",
+    "pullDrivesByEmotion",
+    "resetMood",
+    "saveMoodState"
+  ],
+  "state/render.js": [
+    "memoryStats",
+    "renderMemoryBlock",
+    "renderMemoryBlockRecalled"
+  ],
+  "store.js": [
+    "CONFIG_FILE",
+    "DEFAULT_CONFIG",
+    "PURPOSE_FILE",
+    "allMoodStates",
+    "applyMoodDelta",
+    "cardsFor",
+    "decayMoodFor",
+    "globalCard",
+    "loadConfig",
+    "maintain",
+    "memoryHealth",
+    "memoryStats",
+    "migrateMoodFiles",
+    "moodState",
+    "moodStats",
+    "normalizeCard",
+    "projectCard",
+    "pullDrivesByEmotion",
+    "purposeState",
+    "renderMemoryBlock",
+    "renderMemoryBlockRecalled",
+    "resetCaches",
+    "resetMood",
+    "saveConfig",
+    "saveGlobalCard",
+    "saveMoodState",
+    "saveProjectCard",
+    "savePurposeState",
+    "writeAutoMemories",
+    "writeMemory"
+  ],
+  "threads.js": [
+    "THREAD_MAX_PER_DAY",
+    "THREAD_MAX_TOTAL",
+    "THREAD_TTL_DAYS",
+    "closeMentioned",
+    "expireThreads",
+    "extractThreads",
+    "loadThreads",
+    "openThread",
+    "openThreads",
+    "renderThreadSection",
+    "saveThreads",
+    "threadsPath"
+  ],
+  "tone.js": [
+    "TONE_DEFAULT_EVERY",
+    "TONE_LEVELS",
+    "__resetToneForTest",
+    "__toneStateForTest",
+    "renderTone",
+    "takeTone",
+    "toneLevelOf"
+  ],
+  "tool.js": [
+    "NEED_LABELS",
+    "getFallbackCwd",
+    "registerGoalTool",
+    "registerMemoryTool",
+    "registerNoteTool",
+    "setFallbackCwd"
+  ]
+}

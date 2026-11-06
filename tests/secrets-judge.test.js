@@ -10,14 +10,14 @@ import { mkdtempSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-// 2026-11-05：DPAPI 只在 Windows 可用，Linux/macOS 退化 base64 + 0600（见 lib/secrets.js:10-13）
+// 2026-11-05：DPAPI 只在 Windows 可用，Linux/macOS 退化 base64 + 0600（见 lib/core/secrets.js:10-13）
 const IS_WIN = process.platform === 'win32'
 
 const sandbox = mkdtempSync(join(tmpdir(), 'soul-secrets-'))
 process.env.DSH_HOME = sandbox
 mkdirSync(join(sandbox, 'agents'), { recursive: true })
 
-const secrets = await import('../lib/secrets.js')
+const secrets = await import('../lib/core/secrets.js')
 const mood = await import('../lib/mood.js')
 
 let pass = 0

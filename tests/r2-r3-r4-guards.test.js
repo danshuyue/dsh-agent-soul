@@ -21,7 +21,7 @@ function ok(cond, name) {
 }
 
 const { localPersonaPath } = await import('../lib/persona.js')
-const { isAllowedApiHost } = await import('../lib/api-token.js')
+const { isAllowedApiHost } = await import('../lib/core/api-token.js')
 const { shouldAllowApiRequest } = await import('../lib/api.js')
 
 const work = join(home, 'work')

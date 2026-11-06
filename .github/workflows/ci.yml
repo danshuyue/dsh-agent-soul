@@ -19,5 +19,9 @@ jobs:
         run: npm test
         env:
           DSH_HOME: ${{ runner.temp }}/dsh-ci-home
-      - name: 生成物与源码必须同步
-        run: git diff --exit-code -- lib/client.js
+      - name: 契约门禁单独跑（导出快照 / golden / 依赖图 / 探针 / 入口）
+        run: npm run test:contracts
+        env:
+          DSH_HOME: ${{ runner.temp }}/dsh-ci-contracts
+      - name: 生成物与契约快照必须同步（不能靠刷基线消红）
+        run: git diff --exit-code -- lib/client.js tests/contract/

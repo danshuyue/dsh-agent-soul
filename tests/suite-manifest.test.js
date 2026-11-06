@@ -1,14 +1,18 @@
 /**
- * 测试登记清单（2026-11-05 修 P1-7）：node tests/suite-manifest.test.js
+ * 测试收集与发布门禁（2026-11-06 重构 P0 重写）。
  *
- * npm test 是 40 条 `node tests/xxx.test.js` 的手工长串，已经漂移过一次
- * （diary-complete.test.js 从来没被跑过）。这里不换成 node --test 自动收集 ——
- * 仓库里自建 runner 与 node:test 两套并存，并发跑会互相踩临时目录；
- * 改用「清单门禁」：所有 .test.js 必须登记、登记的文件必须存在、不许重复。
+ * 原版靠正则比对 npm test 的 51 条手工长串防漂移。现在长串已换成
+ * tools/run-tests.mjs 的递归收集器，这里改成比对「收集器实际收集到的集合」
+ * 与「tests/ 目录里真实存在的集合」—— 两边用同一套文件发现逻辑之外，
+ * 再加一层独立实现，防止收集器自己漏扫。
+ *
+ * 仍然串行：40 个自建 runner 与 9 个 node:test 用例并存，很多用例各自
+ * mkdtemp 同一套 DSH_HOME 布局，并发会互相踩临时目录。
  */
-import { readFileSync, readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { collectTests } from '../tools/run-tests.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
@@ -29,15 +33,32 @@ function eq(actual, expected, name) {
   ok(same, `${name}${same ? '' : `（实际 ${JSON.stringify(actual)}，期望 ${JSON.stringify(expected)}）`}`)
 }
 
-const registered = [...String(pkg.scripts.test).matchAll(/tests\/([\w-]+\.test\.js)/g)].map((m) => m[1])
-const all = readdirSync(join(root, 'tests')).filter((f) => f.endsWith('.test.js')).sort()
+/** 独立实现：递归列出 tests/ 下所有 .test.js，返回相对项目根、/ 分隔的路径 */
+function actualTests(dir, prefix = 'tests') {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name)
+    const rel = `${prefix}/${entry.name}`
+    if (entry.isDirectory()) return actualTests(full, rel)
+    return entry.name.endsWith('.test.js') ? [rel] : []
+  }).sort()
+}
 
-console.log('测试登记：')
-eq(all.filter((f) => !registered.includes(f)), [], 'tests/ 下没有漏登记的 .test.js')
-eq(registered.filter((f) => !all.includes(f)), [], '长串里没有指向不存在文件的幽灵引用')
-eq(registered.filter((f, i) => registered.indexOf(f) !== i), [], '没有重复登记')
-ok(registered.length === all.length, `登记 ${registered.length} 个 / 实际 ${all.length} 个`)
+const collected = collectTests()
+const actual = actualTests(join(root, 'tests'))
+
+console.log('测试收集：')
+ok(collected.length > 0, '收集器至少收集到一个测试文件')
+eq(collected, actual, '收集集合与 tests/ 实际文件集合逐项相等（含子目录）')
+eq(new Set(collected).size, collected.length, '没有重复收集')
+ok(collected.every((f) => f.endsWith('.test.js') && statSync(join(root, f)).isFile()), '每个收集项都是真实文件')
 ok(String(pkg.scripts.test).startsWith('node tools/build-client.mjs'), '构建排在测试最前（client.test.js 读产物）')
+ok(String(pkg.scripts.test).includes('node tools/run-tests.mjs'), 'npm test 走自动收集器，不再靠手工长串')
+ok(readFileSync(join(root, 'tools', 'run-tests.mjs'), 'utf8').includes('entry.isDirectory()'), '收集器是递归的')
+
+console.log('契约门禁：')
+for (const name of ['exports.snapshot', 'dep-graph', 'behavior-golden']) {
+  ok(statSync(join(root, 'tests', 'contract', `${name}.test.js`)).isFile(), `${name} 契约测试存在`)
+}
 
 console.log('发布门禁：')
 ok(typeof pkg.scripts.prepack === 'string' && pkg.scripts.prepack.includes('npm test'), 'prepack 会跑全量测试')

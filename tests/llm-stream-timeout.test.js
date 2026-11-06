@@ -36,7 +36,7 @@ function eq(actual, expected, name) {
 const lateRejections = []
 process.on('unhandledRejection', (reason) => lateRejections.push(String(reason)))
 
-const { consumeLlmStream, __llmStreamDefaultsForTest } = await import('../lib/llm-stream.js')
+const { consumeLlmStream, __llmStreamDefaultsForTest } = await import('../lib/core/llm-stream.js')
 const refine = await import('../lib/refine.js')
 const mood = await import('../lib/mood.js')
 const diary = await import('../lib/diary.js')

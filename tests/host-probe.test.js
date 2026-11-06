@@ -15,7 +15,7 @@ const sandbox = mkdtempSync(join(tmpdir(), 'soul-host-'))
 process.env.DSH_HOME = sandbox
 mkdirSync(join(sandbox, 'agents'), { recursive: true })
 
-const host = await import('../lib/host.js')
+const host = await import('../lib/core/host.js')
 
 let pass = 0
 let fail = 0

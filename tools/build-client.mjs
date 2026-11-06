@@ -29,6 +29,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { scanClientSymbols } from './client-symbols.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const projectRoot = join(here, '..')
@@ -103,6 +104,13 @@ const fragments = ORDER.map((file) => ({
 const bundle = HEADER + '\n' + fragments.map((f) => f.text).join('\n\n') + FOOTER
 
 const problems = []
+// 2026-11-06 P11：跨片段符号表检查。片段之间靠隐式全局互调，
+// 搬走或改名一个函数，另一个片段会静默 ReferenceError —— new Function 抓不到。
+// 扫描器先剥注释/字符串再取调用，避免 CSS 模板串里的 rgba(...) 之类误报。
+const symbolReport = scanClientSymbols(clientDir, ORDER)
+for (const { file, names } of symbolReport.unknown) {
+  problems.push(`${file} 引用了未定义的符号：${names.join('、')}（片段间靠隐式全局互调，搬走/改名会静默 ReferenceError）`)
+}
 // 2026-11-05：删掉了逐行扫纯文本的 ESM_RE。片段里有大量模板字符串，
 // 行首出现 `import ` / `export ` 完全可能是给模型看的示例文本，正则会误判成
 // 顶层 ESM 声明，把一次合法构建直接判死。真正的 ESM 语法错误本来就逃不过
@@ -137,8 +145,8 @@ if (problems.length > 0) {
 
 // 内容没变就不写盘：避免每次 npm test 都把生成物 mtime 刷新一遍。
 if (existsSync(outFile) && readFileSync(outFile, 'utf8') === bundle) {
-  console.log(`产物无变化，跳过写盘（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名检查通过）`)
+  console.log(`产物无变化，跳过写盘（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名/符号表检查通过）`)
 } else {
   writeFileSync(outFile, bundle, 'utf8')
-  console.log(`已拼接 ${outFile}（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名检查通过）`)
+  console.log(`已拼接 ${outFile}（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名/符号表检查通过）`)
 }

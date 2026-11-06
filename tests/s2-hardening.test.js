@@ -44,8 +44,8 @@ const paths = await import('../lib/paths.js')
 const store = await import('../lib/store.js')
 const threads = await import('../lib/threads.js')
 const notes = await import('../lib/notes.js')
-const guard = await import('../lib/prompt-guard.js')
-const token = await import('../lib/api-token.js')
+const guard = await import('../lib/core/prompt-guard.js')
+const token = await import('../lib/core/api-token.js')
 const refine = await import('../lib/refine.js')
 const mood = await import('../lib/mood.js')
 const { registerApi, API_PREFIX } = await import('../lib/api.js')
@@ -188,8 +188,14 @@ console.log('\n③ 原子写与全调用点')
   ok(log.includes('连续线写盘失败'), '连续线写失败留 WARN')
   ok(log.includes('笔记索引写盘失败'), '笔记索引写失败留 WARN')
 
-  const indexSrc = readFileSync(join(root, 'lib', 'index.js'), 'utf8')
-  ok(indexSrc.includes('原文不落日志'), '日志不再回显候选原话（只记条数+哈希）')
+  // 2026-11-06 重构：实现可能已迁到 lib/ 子目录，扫描全部模块而不是绑死某个路径
+  const walkJs = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const p = join(dir, entry.name)
+    if (entry.isDirectory()) return entry.name === 'client' ? [] : walkJs(p)
+    return entry.name.endsWith('.js') ? [p] : []
+  })
+  const libText = walkJs(join(root, 'lib')).map((p) => readFileSync(p, 'utf8')).join('\n')
+  ok(libText.includes('原文不落日志'), '日志不再回显候选原话（只记条数+哈希）')
 }
 
 // ---------------------------------------------------------------------------
@@ -235,20 +241,97 @@ console.log('\n⑤ 构建门禁：坏片段不能产出 bundle')
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n⑥ 宿主耦合与杂项')
+console.log('\n⑥ 宿主耦合与杂项（P0 起改成行为断言，不再读源码字符串）')
 {
-  const indexSrc = readFileSync(join(root, 'lib', 'index.js'), 'utf8')
-  ok(indexSrc.includes('function applyInner(ctx)'), 'apply 顶层有兜底 catch')
-  ok(indexSrc.includes("typeof ctx.effect !== 'function'"), 'ctx.effect 缺失时集中早退并留 WARN')
-  const envSrc = readFileSync(join(root, 'lib', 'env.js'), 'utf8')
-  ok(envSrc.includes('服务 ${key} 不可用'), '宿主服务降级会写可检索 WARN')
-  const apiSrc = readFileSync(join(root, 'lib', 'api.js'), 'utf8')
-  ok(apiSrc.includes('PICK_TIMEOUT_MS'), '/pick 有超时')
-  ok(apiSrc.includes('pickInFlight'), '/pick 有并发互斥')
-  const moodSrc = readFileSync(join(root, 'lib', 'mood.js'), 'utf8')
-  ok(moodSrc.includes('if (values.length === 0)'), 'moodDigest 空值不再产出 NaN/Infinity')
-  const memorySrc = readFileSync(join(root, 'lib', 'memory.js'), 'utf8')
-  ok(memorySrc.includes('Number.isFinite(wantedTopK)'), 'topK 不再用 || 吞掉显式值')
+  const { EventEmitter } = await import('node:events')
+  const { apply } = await import('../lib/index.js')
+  const env = await import('../lib/env.js')
+  const apiMod = await import('../lib/api.js')
+  const memory = await import('../lib/memory.js')
+  const logPath = typeof LOG_FILE === 'function' ? LOG_FILE() : LOG_FILE
+  const readLog = () => (existsSync(logPath) ? readFileSync(logPath, 'utf8') : '')
+
+  // ① 顶层兜底 catch：宿主上下文一访问就抛，apply 不能把异常逸出拖垮启动
+  const hostile = new Proxy({}, { get() { throw new Error('BOOM_HOSTILE_CTX') } })
+  let escaped = null
+  try { apply(hostile) } catch (error) { escaped = error }
+  ok(escaped === null, '宿主上下文抛错时 apply 不逸出（顶层兜底 catch 生效）')
+  ok(readLog().includes('BOOM_HOSTILE_CTX') && readLog().includes('插件初始化意外失败'),
+    '兜底异常带真实原因写进可检索日志')
+
+  // ② 缺 ctx.effect 时集中早退 + WARN
+  const noop = () => () => {}
+  const missingEffectCtx = new Proxy({}, {
+    get(_target, prop) {
+      if (prop === 'effect') return undefined
+      if (prop === 'get') return (key) => (key === 'systemPrompt' ? { context: noop } : undefined)
+      if (prop === 'systemPrompt') return { context: noop }
+      if (prop === 'webServer' || prop === 'tools') return { register: noop }
+      if (prop === 'on') return noop
+      return undefined
+    }
+  })
+  let effectEscaped = null
+  try { apply(missingEffectCtx) } catch (error) { effectEscaped = error }
+  ok(effectEscaped === null, '宿主没有 ctx.effect 时 apply 不抛')
+  ok(readLog().includes('宿主没有 ctx.effect'), 'ctx.effect 缺失写可检索 WARN')
+
+  // ③ 服务降级：唯一 key 绕开 noteThrottled 分频
+  const missing = env.serviceOf({}, 'soul-probe-missing-service')
+  ok(missing === undefined, 'serviceOf 对缺失服务返回 undefined')
+  ok(readLog().includes('soul-probe-missing-service'), '宿主服务降级写可检索 WARN')
+
+  // ④⑤ /pick 真超时 + 真互斥：注入假 child，不弹系统对话框
+  const fakeChild = () => {
+    const child = new EventEmitter()
+    child.stdout = new EventEmitter()
+    child.kill = () => {}
+    return child
+  }
+  const keepAlive = setTimeout(() => {}, 300)
+  let timeoutMessage = ''
+  try {
+    await apiMod.pickFolder({ spawnImpl: fakeChild, timeoutMs: 25 })
+  } catch (error) { timeoutMessage = String(error?.message ?? error) }
+  clearTimeout(keepAlive)
+  ok(timeoutMessage.includes('选择文件夹超时'), '/pick 超时会 reject 并关闭对话框')
+
+  const busyChild = fakeChild()
+  const first = apiMod.pickFolder({ spawnImpl: () => busyChild, timeoutMs: 5000 })
+  let mutexMessage = ''
+  try {
+    await apiMod.pickFolder({ spawnImpl: () => busyChild, timeoutMs: 5000 })
+  } catch (error) { mutexMessage = String(error?.message ?? error) }
+  ok(mutexMessage.includes('已有文件夹选择对话框在进行中'), '/pick 并发互斥生效')
+  busyChild.emit('exit', 0)
+  await first
+
+  // ⑥ moodDigest：moments 非空但 mood 全 NaN 时不能产出 NaN/Infinity
+  const badState = { timeline: [{ at: Date.now(), mood: NaN, delta: NaN, reason: '探针' }] }
+  const digest = mood.moodDigest([badState], {})
+  ok(digest.empty === true, 'moodDigest 全 NaN 输入返回 empty')
+  const digestJson = JSON.stringify(digest)
+  ok(!digestJson.includes('NaN') && !digestJson.includes('Infinity') && digest.delta === 0,
+    'moodDigest 不产出 NaN/Infinity')
+
+  // ⑦ topK：显式传入的小值不能被 || 吞掉
+  const cfg = memory.normalizeConfig({ memoryRecallTopK: 6 })
+  const card = memory.createCard('global')
+  const now = Date.now()
+  for (let i = 0; i < 8; i++) {
+    memory.addRecord(card, { text: `STM32 第 ${i} 条相关记忆`, importance: 70 }, cfg, now - i * 1000)
+  }
+  const opts = { query: 'STM32', config: cfg, now }
+  // 固定区会把 8 条全收进去，整段长度看不出差别，要数「相关区」自己的行数
+  const relatedCount = (text) => {
+    const hit = String(text).match(/## 和这句话有关的\n([\s\S]*?)(?=\n## |\n【|$)/)
+    return hit ? (hit[1].match(/^- /gm) || []).length : -1
+  }
+  ok(relatedCount(memory.renderRecalledBlock([card], { ...opts, topK: 1 })) === 1
+    && relatedCount(memory.renderRecalledBlock([card], { ...opts, topK: 6 })) === 6,
+  'topK 显式值 1 / 6 决定相关区行数')
+  ok(relatedCount(memory.renderRecalledBlock([card], { ...opts, topK: 0 })) === 1,
+    '显式 topK=0 落到下限 1，没被 || 吞成配置默认 6')
 }
 
 // ---------------------------------------------------------------------------

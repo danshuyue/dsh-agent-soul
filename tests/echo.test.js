@@ -40,7 +40,7 @@ writeFileSync(join(sandbox, 'AGENT.md'), '# 你是谁\n测试用搭子。\n', 'u
 
 const store = await import('../lib/store.js')
 const mod = await import('../lib/index.js')
-const echo = await import('../lib/echo.js')
+const echo = await import('../lib/core/echo.js')
 
 /** 假宿主：只实现插件真正用到的那几个方法（照抄 sticky.test.js）。 */
 function makeCtx() {

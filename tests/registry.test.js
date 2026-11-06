@@ -24,7 +24,7 @@ function ok(condition, name) {
 const fakeHome = mkdtempSync(join(tmpdir(), 'soul-registry-'))
 process.env.DSH_HOME = fakeHome
 
-const registry = await import('../lib/registry.js')
+const registry = await import('../lib/core/registry.js')
 const paths = await import('../lib/paths.js')
 
 console.log('登记（registerProject）：')
@@ -53,7 +53,7 @@ console.log('容错：')
   ok(Array.isArray(r.projects) && r.projects.length === 0, '坏 JSON 回退空表（不炸）')
 }
 
-// 2026-11-05：decodeSessionDirName 按平台取分隔符（lib/registry.js），断言跟着走
+// 2026-11-05：decodeSessionDirName 按平台取分隔符（lib/core/registry.js），断言跟着走
 const SEP = process.platform === 'win32' ? '\\' : '/'
 
 console.log('会话目录名解码（decodeSessionDirName）：')

@@ -28,7 +28,7 @@ const mood = await import('../lib/mood.js')
 const memory = await import('../lib/memory.js')
 const store = await import('../lib/store.js')
 const refine = await import('../lib/refine.js')
-const { pickConversation } = await import('../lib/diary-pick.js')
+const { pickConversation } = await import('../lib/core/diary-pick.js')
 
 let passed = 0
 let failed = 0

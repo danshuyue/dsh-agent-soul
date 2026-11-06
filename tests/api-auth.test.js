@@ -54,8 +54,14 @@ console.log('\n放行判据（默认配置）：')
 
 console.log('\n逃生口（apiLoopbackOnly: false）：')
 {
-  eq(shouldAllowApiRequest(reqFrom('192.168.1.5'), { apiLoopbackOnly: false }), true, '关掉限制后放行（宿主走代理时的自救）')
-  eq(shouldAllowApiRequest(reqFrom(undefined), { apiLoopbackOnly: false }), true, '拿不到地址也不再拦')
+  // 2026-11-06 修 R4：逃生口改由启动环境控制。
+  // 配置文件可被手改 / 备份还原 / 别的进程写入，残留一个 false 就等于把边界永久关掉，
+  // 所以「配置里写 false」单独不再生效，必须同时有 DSH_SOUL_ALLOW_REMOTE_API=1。
+  eq(shouldAllowApiRequest(reqFrom('192.168.1.5'), { apiLoopbackOnly: false }), false, '只有配置 false 不放行')
+  eq(shouldAllowApiRequest(reqFrom(undefined), { apiLoopbackOnly: false }), false, '拿不到地址也不因配置放行')
+  process.env.DSH_SOUL_ALLOW_REMOTE_API = '1'
+  eq(shouldAllowApiRequest(reqFrom('192.168.1.5'), { apiLoopbackOnly: false }), true, '环境变量 + 配置 false 才放行')
+  delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 }
 
 console.log('\n收尾：')

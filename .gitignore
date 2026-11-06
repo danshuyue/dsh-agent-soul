@@ -4,11 +4,16 @@ dist/
 *.tgz
 
 # 运行数据（绝不能进仓库：里面有记忆内容和本机路径）
+#
+# 2026-11-06 修：这三个目录必须锚定在**仓库根**（前导斜杠）。
+# 原来的 `memory/` 不带斜杠，gitignore 会匹配任意深度的同名目录 ——
+# 于是模块化重构拆出来的 lib/memory/ 9 个文件全被静默忽略，
+# 提交里一个都没有，装到宿主上 lib/memory.js 找不到 ./memory/*.js，插件直接起不来。
 *.log
-agents/
-memory/
-AGENT.md
-persona.json
+/agents/
+/memory/
+/AGENT.md
+/persona.json
 
 # 编辑器与系统
 .vscode/

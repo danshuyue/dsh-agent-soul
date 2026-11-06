@@ -102,7 +102,7 @@ console.log('\n③ 对外链路：不能骗调用方')
 {
   const { addGoal } = await import('../lib/purpose.js')
   const { registerApi, API_PREFIX } = await import('../lib/api.js')
-  process.env.DSH_SOUL_API_TOKEN = 'soul-save-state-test-token'
+  process.env.DSH_SOUL_API_TOKEN = 'soul-save-state-test-token-padded-to-32-'
 
   // 先在可写状态造一条能被关掉的目标，再进入故障态调 /goal。
   restoreWrites()

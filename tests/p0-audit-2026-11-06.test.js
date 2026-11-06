@@ -21,7 +21,7 @@ const imp = (p) => import(pathToFileURL(join(root, 'lib', p)).href)
 
 const sandbox = mkdtempSync(join(tmpdir(), 'soul-p0-audit-'))
 process.env.DSH_HOME = sandbox
-process.env.DSH_SOUL_API_TOKEN = 'audit-token'
+process.env.DSH_SOUL_API_TOKEN = 'audit-token-padded-to-32-chars-000000000'
 delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 
 let passed = 0

@@ -21,7 +21,7 @@ const HOME = mkdtempSync(join(tmpdir(), 'soul-s1-hotfix-'))
 process.env.DSH_HOME = HOME
 delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 // S2 起接口要带会话令牌；本文件用固定令牌模式，ephemeral 链路由 s2-hardening.test.js 覆盖。
-process.env.DSH_SOUL_API_TOKEN = 'soul-s1-hotfix-test-token'
+process.env.DSH_SOUL_API_TOKEN = 'soul-s1-hotfix-test-token-padded-to-32-c'
 
 let passed = 0
 let failed = 0

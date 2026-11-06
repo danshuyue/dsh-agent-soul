@@ -126,12 +126,17 @@ console.log('\n① 会话令牌：无 token 不能碰接口')
   eq(token.verifyApiToken({ headers: { 'x-soul-token': issued.payload.token } }), true, '定长比较通过')
   eq(token.verifyApiToken({ headers: {} }), false, '空头拒绝')
 
-  process.env.DSH_SOUL_API_TOKEN = 'fixed-token-for-test'
+  process.env.DSH_SOUL_API_TOKEN = 'fixed-token-for-test-padded-to-32-chars-'
   eq(token.apiTokenMode(), 'fixed', '设置启动环境后切到固定模式')
   const fixedDenied = await call('GET', '/session', {})
   eq(fixedDenied.status, 403, '固定模式下 /session 不再发放')
-  const fixedOk = await call('GET', '/attestation', {}, { 'x-soul-token': 'fixed-token-for-test' })
+  const fixedOk = await call('GET', '/attestation', {}, { 'x-soul-token': 'fixed-token-for-test-padded-to-32-chars-' })
   eq(fixedOk.status, 200, '固定令牌本身可用（供宿主注入场景）')
+  // 2026-11-06 审计 P2-15：太短的固定令牌不再被接受（等于没有口令）
+  process.env.DSH_SOUL_API_TOKEN = 'short'
+  const shortFixed = await call('GET', '/attestation', {}, { 'x-soul-token': 'short' })
+  eq(shortFixed.status, 401, '少于 32 字符的固定令牌被忽略')
+  eq(token.apiTokenMode(), 'ephemeral', '太短 → 退回进程内临时令牌')
   delete process.env.DSH_SOUL_API_TOKEN
   token.__resetApiTokenForTest()
 }

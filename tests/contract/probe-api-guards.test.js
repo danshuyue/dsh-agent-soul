@@ -20,7 +20,7 @@ const HOME = mkdtempSync(join(tmpdir(), 'soul-probe-api-'))
 process.env.DSH_HOME = HOME
 delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 // S2 起接口要带会话令牌；固定令牌模式，避免把 401 误判成「漏洞已堵」。
-process.env.DSH_SOUL_API_TOKEN = 'soul-probe-api-fixed-token'
+process.env.DSH_SOUL_API_TOKEN = 'soul-probe-api-fixed-token-padded-to-32-'
 
 const imp = (p) => import(pathToFileURL(join(root, 'lib', p)).href)
 

@@ -13,7 +13,7 @@ import { join } from 'node:path'
 
 const HOME = mkdtempSync(join(tmpdir(), 'soul-post-diary-'))
 process.env.DSH_HOME = HOME
-process.env.DSH_SOUL_API_TOKEN = 'soul-post-diary-test-token'
+process.env.DSH_SOUL_API_TOKEN = 'soul-post-diary-test-token-padded-to-32-'
 delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 
 let passed = 0

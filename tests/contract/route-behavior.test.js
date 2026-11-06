@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'soul-route-contract-'))
-process.env.DSH_SOUL_API_TOKEN = 'soul-route-contract-token'
+process.env.DSH_SOUL_API_TOKEN = 'soul-route-contract-token-padded-to-32-c'
 delete process.env.DSH_SOUL_ALLOW_REMOTE_API
 
 let passed = 0

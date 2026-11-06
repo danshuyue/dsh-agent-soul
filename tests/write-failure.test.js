@@ -30,7 +30,7 @@ function eq(actual, expected, name) {
 const HOME = mkdtempSync(join(tmpdir(), 'soul-write-fail-'))
 process.env.DSH_HOME = HOME
 // S2 起接口要带会话令牌；测试用固定令牌模式，避免依赖 /session 的 bootstrap。
-process.env.DSH_SOUL_API_TOKEN = 'soul-write-fail-test-token'
+process.env.DSH_SOUL_API_TOKEN = 'soul-write-fail-test-token-padded-to-32-'
 
 const {
   collectCandidates,

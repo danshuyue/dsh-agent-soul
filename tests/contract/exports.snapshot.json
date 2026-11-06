@@ -16,6 +16,7 @@
     "recordAssembly"
   ],
   "core/api-token.js": [
+    "MIN_FIXED_TOKEN_LENGTH",
     "SESSION_ROUTE",
     "TOKEN_HEADER",
     "__resetApiTokenForTest",

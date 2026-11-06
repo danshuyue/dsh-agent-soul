@@ -66,8 +66,11 @@
     "consumeLlmStream"
   ],
   "core/prompt-guard.js": [
+    "BOUNDARY_TAG",
     "DATA_BOUNDARY_POLICY",
+    "PERSONA_GUARD",
     "neutralizeUntrusted",
+    "randomNonceForTest",
     "wrapUntrusted"
   ],
   "core/registry.js": [

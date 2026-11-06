@@ -1,6 +1,6 @@
 {
-  "hash": "542a452ccd49067044305eb5c6f6daec659b1f1e1e15fe70c55f01b675ba13e9",
-  "length": 2428,
+  "hash": "18bec428eb278a65cec789a036d13bba110f220033fbc36425aab1a22050257c",
+  "length": 2764,
   "cases": [
     "composePrivate",
     "composePublic",

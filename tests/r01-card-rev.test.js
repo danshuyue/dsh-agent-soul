@@ -94,7 +94,12 @@ console.log('③ / ⑦ 合并 + 写盘成功：rev === max(disk, ours) + 1，日
   ok(result.card.records.length >= 2, '③d 合并结果没被 rev 改动（并集仍在）')
   const log = readLog()
   ok(log.includes('盘上 rev=7 比内存 rev=5 新') === true, '③e 日志同时出现两个旧值')
-  ok(log.includes('77') === false, '③f 没有字符串拼接出来的 "77"')
+  // 2026-11-06 R03 顺手修：原来断言的是「整个日志里不含 "77"」——
+  // 只要别的日志行（`启动 pid=…`、随机 id、时间戳）里恰好有 77，这条就会假红。
+  // 改成只看 rev 相关的那一行。
+  const revLines = log.split('\n').filter((line) => line.includes('盘上 rev='))
+  ok(revLines.length > 0 && revLines.every((line) => !line.includes('rev=77')),
+    '③f 没有字符串拼接出来的 "77"（只看 rev 相关的日志行）')
 }
 
 // ---------------------------------------------------------------------------

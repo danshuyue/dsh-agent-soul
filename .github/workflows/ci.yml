@@ -45,6 +45,7 @@ jobs:
         env:
           DSH_HOME: ${{ runner.temp }}\dsh-ci-home
       - name: 生成物与契约快照必须同步
-        # Windows 上 build-client 写的是 LF，checkout 可能按 core.autocrlf 转成 CRLF，
-        # 这里只校验「构建有没有改动产物」，不看行尾。
-        run: git diff --exit-code -- tests/contract/
+        # 2026-11-06 第二份审查 H-4：这里原来只查 tests/contract/，
+        # 漏了 lib/client.js —— 于是「改了片段没重新构建」在 Windows 上不会被拦。
+        # 行尾由 .gitattributes 固定成 LF，所以和 Linux job 用同一条命令即可。
+        run: git diff --exit-code -- lib/client.js tests/contract/

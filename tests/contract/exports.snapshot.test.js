@@ -52,7 +52,13 @@ for (const rel of files) {
 console.log('导出名快照：')
 ok(loadErrors.length === 0, `所有 lib 模块都能被 import（${files.length} 个）${loadErrors.length ? ` → ${loadErrors.join('; ')}` : ''}`)
 
-if (!existsSync(snapshotFile) || process.env.SOUL_UPDATE_SNAPSHOT === '1') {
+// 2026-11-06 第二份审查 H-4：基线**缺失**时不许静默重建。
+// 原来 `!existsSync(snapshotFile)` 会直接走进「首次生成」分支 —— 删掉基线文件
+// 就等于把门禁整个关掉，而且 `git status` 上只会多一个「新增文件」。
+// 现在缺基线必须显式说明是首次生成（SOUL_UPDATE_SNAPSHOT=1），否则本测试失败。
+if (!existsSync(snapshotFile) && process.env.SOUL_UPDATE_SNAPSHOT !== '1') {
+  ok(false, `基线文件存在（${relative(root, snapshotFile)} 缺失时不许静默重建；首次生成请显式 SOUL_UPDATE_SNAPSHOT=1）`)
+} else if (!existsSync(snapshotFile) || process.env.SOUL_UPDATE_SNAPSHOT === '1') {
   const existed = existsSync(snapshotFile)
   // 2026-11-06 P11：更新已有基线必须写明理由并留痕，防「刷基线消红」。
   if (existed) requireSnapshotReason(root, 'exports.snapshot.json')

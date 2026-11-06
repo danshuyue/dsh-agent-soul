@@ -260,8 +260,11 @@ console.log('\n注入渲染（Inline & Spill：只给索引，正文留在窗口
 
   reset()
   for (let i = 0; i < 8; i += 1) writeNote({ title: `笔记${i}`, content: `第 ${i} 篇的正文` })
-  const small = renderNotesBlock({ maxChars: 120 })
+  // 2026-11-06 R03/H-3：边界标签变长（带 nonce），120 字预算已经放不下「标题 + 一条」，
+  // 所以预算提到 200 才走得到「列不全」这条分支；极小预算的行为单独断言。
+  const small = renderNotesBlock({ maxChars: 200 })
   ok(small.includes('soul_note list'), '列不全时提示用 list 看全部')
+  eq(renderNotesBlock({ maxChars: 60 }), '', '预算连标题带一条都放不下时返回空串（不注入半截）')
 }
 
 console.log('\n摘要：')

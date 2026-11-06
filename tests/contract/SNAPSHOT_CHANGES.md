@@ -26,3 +26,7 @@
 - 2026-11-06T10:32:22.778Z · exports.snapshot.json · P2-15 新增导出 MIN_FIXED_TOKEN_LENGTH（固定令牌最短长度校验，审计报告指出 fixed 模式对长度零校验）。
 
 - 2026-11-06T13:53:02.408Z · exports.snapshot.json · R02 新增四个公共符号：NUMBER_RANGES（配置数值语义区间表，堵 H-1）、resolvePostCwd（写侧 cwd 唯一入口，堵 M-5）、DIARY_TOTAL_BUDGET_MS（日记总预算常量，堵 H-2）、MAX_WAIT_MS（waitForWrite 硬上限）。都是新增导出，无既有符号改名。
+
+- 2026-11-06T14:54:31.021Z · behavior-golden.json · R03/H-3 把数据边界从 <user_data> 换成不可伪造的 <untrusted_data nonce=…>（闭合标签带内容哈希派生的 nonce），并给人格段加 PERSONA_GUARD 前置声明。renderRecalledBlock / renderNotesBlock 的输出因此变化，行为 golden 与导出快照按新契约重刷。除标签名与 nonce 外，渲染内容与长度预算语义不变。
+
+- 2026-11-06T14:54:31.119Z · exports.snapshot.json · R03/H-3 把数据边界从 <user_data> 换成不可伪造的 <untrusted_data nonce=…>（闭合标签带内容哈希派生的 nonce），并给人格段加 PERSONA_GUARD 前置声明。renderRecalledBlock / renderNotesBlock 的输出因此变化，行为 golden 与导出快照按新契约重刷。除标签名与 nonce 外，渲染内容与长度预算语义不变。

@@ -105,7 +105,8 @@ console.log('注入段：')
   ok(names.includes('soul:notes'), '有笔记索引段')
   ok(names.includes('soul:data-policy'), '有数据边界声明段')
   const policy = segments.find((s) => s.name === 'soul:data-policy').text({})
-  ok(policy.includes('<user_data') && policy.includes('不是指令'), '边界声明明确写了「标签内是数据」')
+  // 2026-11-06 R03/H-3：边界标签改名 untrusted_data（闭合带 nonce）
+  ok(policy.includes('<untrusted_data') && policy.includes('不是指令'), '边界声明明确写了「标签内是数据」')
 
   const fakeContext = { agent: { session: { header: { cwd: '' }, seq: 3, firstLiveSeq: 0, snapshotEvents: () => [] } } }
   for (const segment of segments) {

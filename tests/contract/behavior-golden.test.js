@@ -88,7 +88,10 @@ console.log('行为 golden：')
 ok(serialized.length > 500, `golden 输出有实质内容（${serialized.length} 字符）`)
 console.log(`  · sha256 ${hash}`)
 
-if (!existsSync(snapshotFile) || process.env.SOUL_UPDATE_SNAPSHOT === '1') {
+// 2026-11-06 第二份审查 H-4：基线缺失时不许静默重建（同 exports.snapshot 的理由）。
+if (!existsSync(snapshotFile) && process.env.SOUL_UPDATE_SNAPSHOT !== '1') {
+  ok(false, `基线文件存在（${relative(root, snapshotFile)} 缺失时不许静默重建；首次生成请显式 SOUL_UPDATE_SNAPSHOT=1）`)
+} else if (!existsSync(snapshotFile) || process.env.SOUL_UPDATE_SNAPSHOT === '1') {
   const existed = existsSync(snapshotFile)
   // 2026-11-06 P11：改行为 golden 必须写明理由并留痕，防「刷基线消红」。
   if (existed) requireSnapshotReason(root, 'behavior-golden.json')

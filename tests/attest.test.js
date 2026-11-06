@@ -129,9 +129,12 @@ console.log('历史环形：')
   for (let i = 0; i < 30; i += 1) {
     recordAssembly(assemblyOf([ctxItem('soul:persona', 'a')]), agentContext(`sess-${i}`))
   }
-  const state = attestationState()
-  eq(state.history.length, 20, '历史最多留 20 条')
-  eq(state.last.sessionId, 'sess-29', 'last 是最新那条')
+  const state = attestationState({ includeHistory: true })
+  eq(state.history.length, 20, '历史最多留 20 条（显式要才给）')
+  // 2026-11-06 审计 P2-14：sessionId 换成短哈希摘要，不再是宿主内部 id
+  ok(typeof state.last.sessionRef === 'string' && state.last.sessionRef.length === 8, 'last 只回 sessionRef 短哈希')
+  eq(state.last.sessionId, undefined, '不再回原始 sessionId')
+  eq(attestationState().history.length, 0, '默认不回历史（少一个枚举面）')
   eq(state.observed, true, '观测到过就是 true')
 }
 

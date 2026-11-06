@@ -47,6 +47,10 @@ function main() {
   console.log(`收集到 ${files.length} 个测试文件${only ? `（--only=${only}，全量 ${all.length}）` : ''}，串行执行\n`)
   let executed = 0
   let failed = 0
+  const failures = []
+  // 2026-11-06 审计 Q12：失败即 break 的话，第一个红就把后面 40 多个文件全挡住，
+  // 一次只能修一个问题。改成跑完全部再汇总（--stop-on-first-failure 保留旧行为）。
+  const stopEarly = process.argv.includes('--stop-on-first-failure')
   for (const rel of files) {
     executed += 1
     console.log(`\n===== [${executed}/${files.length}] ${rel} =====`)
@@ -58,13 +62,23 @@ function main() {
     if (result.error) {
       console.error(`✗ ${rel} 启动失败：${result.error.message}`)
       failed += 1
-      break
+      failures.push(rel)
+      if (stopEarly) break
+      continue
     }
     if (result.status !== 0) {
-      console.error(`\n✗ ${rel} 退出码 ${result.status}，停止后续测试`)
+      console.error(`\n✗ ${rel} 退出码 ${result.status}`)
       failed += 1
-      break
+      failures.push(rel)
+      if (stopEarly) {
+        console.error('（--stop-on-first-failure：停止后续测试）')
+        break
+      }
     }
+  }
+  if (failures.length > 0) {
+    console.error('\n失败清单：')
+    for (const rel of failures) console.error(`  ✗ ${rel}`)
   }
   console.log(`\n汇总：收集 ${files.length} / 执行 ${executed} / 失败 ${failed}`)
   process.exit(failed === 0 && executed === files.length ? 0 : 1)

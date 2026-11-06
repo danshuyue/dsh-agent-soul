@@ -1,5 +1,10 @@
 # 2026-11-05 修 P1-9：发布前必须有自动拦截点。
 # 本地 prepack 负责 npm publish 前的门禁，这条 workflow 负责 PR / push。
+#
+# 2026-11-06 审计：原来只有 ubuntu-latest。可这个插件的**主要目标平台是 Windows**
+# （DPAPI 密钥、%SystemRoot% 下的 PowerShell、\ 路径分隔符、junction 安装），
+# 而 CI 一次都没跑过那条分支 —— 审查方在 Windows 机器上就撞到 2 个失败，
+# 在 CI 里永远是绿的。所以补一个 windows-latest job 并行跑。
 name: CI
 
 on:
@@ -25,3 +30,21 @@ jobs:
           DSH_HOME: ${{ runner.temp }}/dsh-ci-contracts
       - name: 生成物与契约快照必须同步（不能靠刷基线消红）
         run: git diff --exit-code -- lib/client.js tests/contract/
+
+  windows:
+    # 目标平台是 Windows：DPAPI / PowerShell / 反斜杠路径 / junction 全在这条分支上，
+    # 只在 Linux 上绿等于没验过。
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 全量测试（Windows 分支：DPAPI 真的走 PowerShell）
+        run: npm test
+        env:
+          DSH_HOME: ${{ runner.temp }}\dsh-ci-home
+      - name: 生成物与契约快照必须同步
+        # Windows 上 build-client 写的是 LF，checkout 可能按 core.autocrlf 转成 CRLF，
+        # 这里只校验「构建有没有改动产物」，不看行尾。
+        run: git diff --exit-code -- tests/contract/

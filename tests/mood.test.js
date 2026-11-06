@@ -249,18 +249,25 @@ console.log('表情图静态路由（沙箱）：')
   eq(routes.length, 1, '注册了一条静态路由')
   eq(routes[0].path, '/dsh-agent-soul', '路径对')
 
-  const call = (url) => {
+  // 2026-11-06 审计 P1-1：静态路由现在也走 Host 白名单 + 回环校验。
+  // 真实浏览器一定带 Host，所以假请求也得带上 —— 不带会被 403（这是对的）。
+  const call = (url, headers = { host: '127.0.0.1:57241' }, remote = '127.0.0.1') => {
     let head = null
     let body = null
     routes[0].handler(
-      { url, method: 'GET' },
+      { url, method: 'GET', headers, socket: { remoteAddress: remote } },
       {
-        writeHead(code, headers) { head = { code, headers } },
+        writeHead(code, hdrs) { head = { code, headers: hdrs } },
         end(buf) { body = buf }
       }
     )
     return { head, body }
   }
+
+  // 免鉴权出口已经收口：没有 Host / 外部 Host / 非回环，一律 403
+  eq(call('/dsh-agent-soul/face-ok.png', {}).head.code, 403, '没有 Host → 403（不再是免鉴权出口）')
+  eq(call('/dsh-agent-soul/face-ok.png', { host: 'evil.example.com' }).head.code, 403, '外部 Host → 403')
+  eq(call('/dsh-agent-soul/face-ok.png', { host: '127.0.0.1:1' }, '192.168.1.9').head.code, 403, '非回环 → 403')
 
   const png = call('/dsh-agent-soul/face-ok.png')
   eq(png.head.code, 200, '表情图能取到')
@@ -432,7 +439,10 @@ function fakeLlm(replyJson) {
     unobserveAll()
   }
 
-  // 一点变化都没有的回合不记账
+  // ±1 现在算一步（2026-11-06 审计 P0-2）
+  //
+  // 原来这里断言「moodDelta:1 不记账」——那是把 bug 当成契约写下来了：
+  // Math.round(1/3) === 0，于是判定模型按 prompt 给的 ±1 永远不生效。
   {
     const deltas = []
     const llm2 = fakeLlm('{"moodDelta":1,"dims":{},"reason":"","confidence":50}')
@@ -445,7 +455,25 @@ function fakeLlm(replyJson) {
     agent2.emit('agent/inbox/inserted', { content: '哦', source: { kind: 'user' } })
     agent2.emit('agent/turn-stopping')
     await settle()
-    eq(deltas.length, 0, '挪不动格的回合不记账')
+    eq(deltas.length, 1, '+1 也算一步：不再被 round(1/3)=0 吃掉')
+    eq(deltas[0].d.moodDelta, 1, '判定分数原样交给 applyMoodDelta')
+    unobserveAll()
+  }
+
+  // 真正一点变化都没有（0 分 + 七情全 0）才不记账
+  {
+    const deltas = []
+    const llm2 = fakeLlm('{"moodDelta":0,"dims":{},"reason":"","confidence":50}')
+    const agent2 = fakeAgent()
+    observeAgent(agent2, {
+      llm: llm2,
+      config: () => ({ ...cfgBase, applyMoodDelta: (d, opts) => deltas.push({ d, opts }) }),
+      note: () => {}
+    })
+    agent2.emit('agent/inbox/inserted', { content: '哦', source: { kind: 'user' } })
+    agent2.emit('agent/turn-stopping')
+    await settle()
+    eq(deltas.length, 0, '0 分且七情全 0 的回合不记账')
     unobserveAll()
   }
 

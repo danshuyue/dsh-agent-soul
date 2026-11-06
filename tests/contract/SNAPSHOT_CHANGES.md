@@ -20,3 +20,5 @@
 - 2026-11-06T05:44:05.724Z · exports.snapshot.json · P16 真拆：新增 lib/http/routes/*（7 文件）与 lib/host/runtime/*（12 文件），27 个路由 handler 与 6 个装配段从巨型主体搬出；六个公共门面与 host/runtime.js 的对外导出集合不变
 
 - 2026-11-06T06:13:16.561Z · behavior-golden.json · 行为 golden 改为固定 TZ=UTC：renderCard 头部按本地时区格式化，基线原来在 UTC+8 生成，CI 跑在 UTC 时哈希不同（长度相同、字节不同）导致首次推送即红灯。行为本身未变。
+
+- 2026-11-06T10:24:37.203Z · exports.snapshot.json · 2026-11-06 审计 P0/P1 修复新增三个公共符号：moodStepOf（心情步长统一入口，取代两处各写一遍的 Math.round/3）、normalizeCwdParam（?cwd= 的绝对路径+目录校验）、isSafeLocalName + SAFE_LOCAL_NAMES（项目人格文件名枚举，堵 P0-1 任意文件读取）。均为新增导出，无既有符号改名。

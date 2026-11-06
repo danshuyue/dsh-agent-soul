@@ -380,6 +380,7 @@
     "currentSessionIdOf",
     "diarySessionDays",
     "listDiarySessions",
+    "normalizeCwdParam",
     "resolveCwd"
   ],
   "index.js": [
@@ -556,6 +557,7 @@
     "displayDims",
     "moodFace",
     "moodLabel",
+    "moodStepOf",
     "normMoodState",
     "normReason",
     "normalizeMoodConfig",
@@ -653,9 +655,11 @@
   "persona.js": [
     "LOCAL_NAMES",
     "MAX_INJECT_CHARS",
+    "SAFE_LOCAL_NAMES",
     "cleanPersona",
     "composePersona",
     "defuseTemplate",
+    "isSafeLocalName",
     "localPersonaPath",
     "mergeSections",
     "resolveSources",

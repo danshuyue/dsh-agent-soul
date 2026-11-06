@@ -36,7 +36,8 @@ function callHandler(path) {
     writeHead: (code) => { status = code },
     end: (chunk) => { body = String(chunk ?? '') }
   }
-  handler({ url: path, method: 'GET' }, res)
+  // 2026-11-06 审计 P1-1：静态路由现在也要过 Host 白名单 + 回环，假请求得带上 Host。
+  handler({ url: path, method: 'GET', headers: { host: '127.0.0.1:57241' }, socket: { remoteAddress: '127.0.0.1' } }, res)
   return { status, body }
 }
 

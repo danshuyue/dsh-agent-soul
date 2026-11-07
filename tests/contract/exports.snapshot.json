@@ -84,13 +84,16 @@
     "workspaceStorePath"
   ],
   "core/secrets.js": [
+    "SHELL_BREAKER_MS",
+    "SHELL_TIMEOUT_MS",
     "__resetSecretsForTest",
     "deleteSecret",
     "loadSecret",
     "saveSecret",
     "secretInfo",
     "secretPath",
-    "secretsDir"
+    "secretsDir",
+    "shouldTripBreaker"
   ],
   "diary-tool.js": [
     "checkDiaryDate",
@@ -168,6 +171,7 @@
     "regenerateDiary",
     "runCatchUp",
     "runDiaryOnce",
+    "shouldAskAgain",
     "startDiaryTimer"
   ],
   "env.js": [

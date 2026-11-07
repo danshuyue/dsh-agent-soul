@@ -32,3 +32,7 @@
 - 2026-11-06T14:54:31.119Z · exports.snapshot.json · R03/H-3 把数据边界从 <user_data> 换成不可伪造的 <untrusted_data nonce=…>（闭合标签带内容哈希派生的 nonce），并给人格段加 PERSONA_GUARD 前置声明。renderRecalledBlock / renderNotesBlock 的输出因此变化，行为 golden 与导出快照按新契约重刷。除标签名与 nonce 外，渲染内容与长度预算语义不变。
 
 - 2026-11-07T02:44:06.463Z · exports.snapshot.json · R04/P1-S2 把 cwd 的「存在性检查」从 normalizeCwdParam 里拆出来成 isExistingDirectory（纯字符串校验先跑、归属判定通过后才碰磁盘），新增一个导出；同时 UNC/设备路径在字符串阶段直接拒绝。
+
+- 2026-11-07T03:35:51.657Z · exports.snapshot.json · R05/P1-D3 把「还要不要再找她写」的判定抽成纯函数 shouldAskAgain 并导出（原先是 followup 里的一段内联判断，无法单独测试）。行为：force 一定重写；文件不存在要写；since=0 保持旧行为；since>0 时只有比基线新才算她这轮写的。
+
+- 2026-11-07T03:37:15.461Z · exports.snapshot.json · R05/P2-3 把 PowerShell 的超时与熔断期做成可审阅的常量（SHELL_TIMEOUT_MS 20s→6s、SHELL_BREAKER_MS 30s），并把「这次失败要不要熔断」抽成纯函数 shouldTripBreaker 导出以便跨平台测试。

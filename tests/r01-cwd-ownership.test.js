@@ -244,15 +244,17 @@ console.log('ADV-6b 登记后大小写写法不同，也视为同一个工作区
     const lower = await stateOf(outside.toLowerCase())
     eq(lower.json?.workspace?.cwdSource, 'path', 'ADV-6b 小写写法命中已登记工作区')
   } else {
-    // Linux：注册表里存的是原样路径，大小写变体是另一个路径 —— 不该命中。
-    // 2026-11-07 R04/P1-S2：现在是 rejected-unowned（归属先判、不碰磁盘），不是 rejected。
-    // 同样别假设 toLowerCase() 一定不同：后缀可能本来就全小写，那样它等于原串、刚登记过。
+    // Linux：注册表里存的是原样路径，但 normalizePathKey **无条件小写**，
+    // 所以大小写变体在归属判定这一层仍然命中登记表；
+    // 真正挡住它的是随后的存在性检查 —— 那个路径并不存在，于是 rejected。
+    // 2026-11-07 R04/P1-S2 保持这个结果不变，只是把 stat 挪到了归属之后。
     const lower = outside.toLowerCase()
     if (lower !== outside) {
-      eq((await stateOf(lower)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6b 小写变体不属于本工作区')
+      eq((await stateOf(lower)).json?.workspace?.cwdSource, 'rejected', 'ADV-6b 变体命中登记表但目录不存在 → rejected')
     }
+    // 与大小写无关的稳定断言：语法合法、未登记的相邻路径必须是未归属
     const neighbour = `${outside}-sibling`
-    eq((await stateOf(neighbour)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6b 相邻路径不命中登记表')
+    eq((await stateOf(neighbour)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6b 相邻路径未登记 → rejected-unowned')
   }
   const withSlash = await stateOf(`${outside}${sep}`)
   eq(withSlash.json?.workspace?.cwdSource, 'path', 'ADV-5b 尾随分隔符命中已登记工作区')

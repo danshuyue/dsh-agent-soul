@@ -162,9 +162,21 @@ console.log('④ 相对路径 / 不存在的目录 → 仍是 rejected（两个�
 {
   const rel = await stateOf('relative/project')
   eq(rel.json?.workspace?.cwdSource, 'rejected', '④-1 相对路径 → rejected')
-  const missing = await stateOf(join(sandbox, 'definitely-not-here'))
-  eq(missing.json?.workspace?.cwdSource, 'rejected', '④-2 不存在目录 → rejected')
+  // 2026-11-07 R04/P1-S2：不存在的路径不再由 normalizeCwdParam 判（那里不碰磁盘了）。
+  // 注意必须用 DSH_HOME **之外**的路径：DSH_HOME 内的目录会被条件② 直接放行，
+  // 然后才轮到存在性检查（那种情形仍是 rejected，见 p0-audit）。
+  const missing = await stateOf(join(outside, 'definitely-not-here'))
+  eq(missing.json?.workspace?.cwdSource, 'rejected-unowned', '④-2 未登记的不存在目录 → rejected-unowned（不碰磁盘）')
   ok('rejected' !== 'rejected-unowned', '④-3 两个 source 保持可区分')
+
+  // 已登记 + 目录消失 → 归属先过，存在性检查才失败 → rejected
+  const { registerProject } = await import('../lib/core/registry.js')
+  const ghost = join(sandbox, 'ghost-registered')
+  registerProject(ghost, {})
+  const gone = await stateOf(ghost)
+  eq(gone.json?.workspace?.cwdSource, 'rejected', '④-4 已登记但目录已消失 → rejected')
+  const { registryPath } = await import('../lib/core/registry.js')
+  writeFileSync(registryPath(), '{"version":1,"projects":[]}\n', 'utf8')
 }
 
 // ---------------------------------------------------------------------------
@@ -191,10 +203,17 @@ console.log('ADV-5 尾随分隔符 / ADV-6 大小写 / ADV-7 DSH_HOME 父目录'
   } else {
     // Linux：大写是**另一个路径**，登记表里没有它，所以归属判定先失败。
     // 2026-11-07 R04/P1-S2 之后这里从 'rejected' 变成 'rejected-unowned'：
-    // 存在性检查（statSync）已经挪到归属判定**之后**，
-    // 未归属的路径根本不会碰磁盘，自然也就分不出「不存在」和「不是你的」。
-    const upper = await stateOf(outside.toUpperCase())
-    eq(upper.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大小写敏感平台上，大写路径不属于本工作区')
+    // 存在性检查（statSync）已经挪到归属判定**之后**，未归属的路径根本不碰磁盘。
+    //
+    // 注意别写成「大写一定不同」：mkdtemp 的随机后缀可能本来就全大写，
+    // 那样 toUpperCase() 等于原串、刚登记过 → 会得到 'path'，测试就变成偶发红。
+    const upper = outside.toUpperCase()
+    if (upper !== outside) {
+      eq((await stateOf(upper)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大写变体不属于本工作区')
+    }
+    // 与大小写无关的稳定断言：语法合法、未登记的相邻路径必须是未归属
+    const neighbour = `${outside}-neighbour`
+    eq((await stateOf(neighbour)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 相邻路径不属于本工作区')
   }
   const parent = await stateOf(tmpdir())
   eq(parent.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-7 DSH_HOME 的父目录不能被前缀判定放行')
@@ -225,9 +244,15 @@ console.log('ADV-6b 登记后大小写写法不同，也视为同一个工作区
     const lower = await stateOf(outside.toLowerCase())
     eq(lower.json?.workspace?.cwdSource, 'path', 'ADV-6b 小写写法命中已登记工作区')
   } else {
-    // Linux：注册表里存的是原样路径，大小写变体是另一个路径 —— 不该命中
-    const lower = await stateOf(outside.toLowerCase())
-    eq(lower.json?.workspace?.cwdSource, 'rejected', 'ADV-6b 大小写敏感平台上，变体路径不命中登记表')
+    // Linux：注册表里存的是原样路径，大小写变体是另一个路径 —— 不该命中。
+    // 2026-11-07 R04/P1-S2：现在是 rejected-unowned（归属先判、不碰磁盘），不是 rejected。
+    // 同样别假设 toLowerCase() 一定不同：后缀可能本来就全小写，那样它等于原串、刚登记过。
+    const lower = outside.toLowerCase()
+    if (lower !== outside) {
+      eq((await stateOf(lower)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6b 小写变体不属于本工作区')
+    }
+    const neighbour = `${outside}-sibling`
+    eq((await stateOf(neighbour)).json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6b 相邻路径不命中登记表')
   }
   const withSlash = await stateOf(`${outside}${sep}`)
   eq(withSlash.json?.workspace?.cwdSource, 'path', 'ADV-5b 尾随分隔符命中已登记工作区')

@@ -439,6 +439,7 @@
     "normalizeConfig",
     "normalizeKind",
     "ownerImportant",
+    "readCardQuietly",
     "recall",
     "recallArchived",
     "recallQueryTerms",
@@ -459,6 +460,7 @@
     "isCardReadonly",
     "loadCard",
     "makeArchiver",
+    "readCardQuietly",
     "recallArchived",
     "saveCard"
   ],

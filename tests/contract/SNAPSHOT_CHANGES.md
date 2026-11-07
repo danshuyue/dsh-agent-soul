@@ -40,3 +40,5 @@
 - 2026-11-07T04:07:38.911Z · exports.snapshot.json · R6：Host 信任判定改为「以宿主 connection.requestRejection 为准 + 插件白名单兜底」，新增 checkHostTrust/allowedHostList/isLoopbackHostName/noteRemoteHostOnce 四个导出；同时修正 Origin 与 Host 的端口比较（规范化权威 + 回环间允许不同端口）。
 
 - 2026-11-07T04:28:49.969Z · exports.snapshot.json · R7：L2 把「挑最近 12 条素材」抽成纯函数 pickRecentMaterials（原先内联在 maintain 里，无法单独测）。口径由「数组尾部 12 条」改为「按 lastSeenAt 优先、createdAt 兜底排序取前 12」。
+
+- 2026-11-07T05:52:27.724Z · exports.snapshot.json · R8/P2-12 新增无副作用读卡 readCardQuietly（合并路径与写后回读改用它，避免 loadCard 的 parkCorrupt 把主记忆文件改名）。

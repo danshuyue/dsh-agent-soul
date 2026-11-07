@@ -189,9 +189,12 @@ console.log('ADV-5 尾随分隔符 / ADV-6 大小写 / ADV-7 DSH_HOME 父目录'
     const upper = await stateOf(outside.toUpperCase())
     eq(upper.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大小写不同不影响归属（未登记时一样拒绝）')
   } else {
-    // Linux：大写是一个**另一个不存在的路径**，走的是 'rejected' 而不是归属判定
+    // Linux：大写是**另一个路径**，登记表里没有它，所以归属判定先失败。
+    // 2026-11-07 R04/P1-S2 之后这里从 'rejected' 变成 'rejected-unowned'：
+    // 存在性检查（statSync）已经挪到归属判定**之后**，
+    // 未归属的路径根本不会碰磁盘，自然也就分不出「不存在」和「不是你的」。
     const upper = await stateOf(outside.toUpperCase())
-    eq(upper.json?.workspace?.cwdSource, 'rejected', 'ADV-6 大小写敏感平台上，大写路径按「路径不存在」拒绝')
+    eq(upper.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-6 大小写敏感平台上，大写路径不属于本工作区')
   }
   const parent = await stateOf(tmpdir())
   eq(parent.json?.workspace?.cwdSource, 'rejected-unowned', 'ADV-7 DSH_HOME 的父目录不能被前缀判定放行')

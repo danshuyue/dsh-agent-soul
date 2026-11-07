@@ -386,6 +386,7 @@
   "http/sessions.js": [
     "currentSessionIdOf",
     "diarySessionDays",
+    "isExistingDirectory",
     "listDiarySessions",
     "normalizeCwdParam",
     "resolveCwd",

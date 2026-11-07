@@ -37,7 +37,7 @@ function eq(actual, expected, name) {
 
 const persona = await imp('persona.js')
 const { validateConfigEntry } = await imp('http/middleware.js')
-const { normalizeCwdParam } = await imp('http/sessions.js')
+const { isExistingDirectory, normalizeCwdParam } = await imp('http/sessions.js')
 const moodCore = await imp('mood/core.js')
 const memory = await imp('memory.js')
 const notes = await imp('notes.js')
@@ -80,11 +80,24 @@ console.log('P0-1b · ?cwd= 必须先证明自己是个真实目录')
 {
   ok(normalizeCwdParam('') === null, '空串拒绝')
   ok(normalizeCwdParam('relative/path') === null, '相对路径拒绝')
-  ok(normalizeCwdParam(join(sandbox, '不存在的目录')) === null, '不存在的目录拒绝')
   ok(normalizeCwdParam(join(sandbox, 'victim')) === join(sandbox, 'victim'), '真实目录放行')
-  writeFileSync(join(sandbox, 'a-file.txt'), 'x', 'utf8')
-  ok(normalizeCwdParam(join(sandbox, 'a-file.txt')) === null, '是文件不是目录 → 拒绝')
   ok(normalizeCwdParam('\u0000bad') === null, '控制字符拒绝')
+
+  // 2026-11-07 P1-S2：UNC / 设备路径在**字符串阶段**就拒 ——
+  // 否则 statSync 会发起 SMB 连接（自动带 NTLM 凭据）并同步阻塞事件循环。
+  ok(normalizeCwdParam('\\\\attacker.com\\share') === null, 'UNC 路径拒绝（SMB 凭据外发）')
+  ok(normalizeCwdParam('\\\\?\\C:\\Windows') === null, '设备命名空间路径拒绝')
+  ok(normalizeCwdParam('\\\\.\\PhysicalDrive0') === null, '设备路径拒绝')
+
+  // 语法合法但不存在 / 不是目录：不在 normalizeCwdParam 里判，交给归属之后的存在性检查
+  const ghost = join(sandbox, '不存在的目录')
+  ok(normalizeCwdParam(ghost) === ghost, '不存在的路径语法上合法（这里不碰磁盘）')
+  ok(isExistingDirectory(ghost) === false, '存在性检查判断它不存在')
+  writeFileSync(join(sandbox, 'a-file.txt'), 'x', 'utf8')
+  const file = join(sandbox, 'a-file.txt')
+  ok(normalizeCwdParam(file) === file, '文件路径语法上合法')
+  ok(isExistingDirectory(file) === false, '存在性检查拒绝「是文件不是目录」')
+  ok(isExistingDirectory(join(sandbox, 'victim')) === true, '真实目录通过存在性检查')
 }
 
 // ---------------------------------------------------------------------------

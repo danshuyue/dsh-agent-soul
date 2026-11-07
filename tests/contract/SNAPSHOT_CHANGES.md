@@ -30,3 +30,5 @@
 - 2026-11-06T14:54:31.021Z · behavior-golden.json · R03/H-3 把数据边界从 <user_data> 换成不可伪造的 <untrusted_data nonce=…>（闭合标签带内容哈希派生的 nonce），并给人格段加 PERSONA_GUARD 前置声明。renderRecalledBlock / renderNotesBlock 的输出因此变化，行为 golden 与导出快照按新契约重刷。除标签名与 nonce 外，渲染内容与长度预算语义不变。
 
 - 2026-11-06T14:54:31.119Z · exports.snapshot.json · R03/H-3 把数据边界从 <user_data> 换成不可伪造的 <untrusted_data nonce=…>（闭合标签带内容哈希派生的 nonce），并给人格段加 PERSONA_GUARD 前置声明。renderRecalledBlock / renderNotesBlock 的输出因此变化，行为 golden 与导出快照按新契约重刷。除标签名与 nonce 外，渲染内容与长度预算语义不变。
+
+- 2026-11-07T02:44:06.463Z · exports.snapshot.json · R04/P1-S2 把 cwd 的「存在性检查」从 normalizeCwdParam 里拆出来成 isExistingDirectory（纯字符串校验先跑、归属判定通过后才碰磁盘），新增一个导出；同时 UNC/设备路径在字符串阶段直接拒绝。

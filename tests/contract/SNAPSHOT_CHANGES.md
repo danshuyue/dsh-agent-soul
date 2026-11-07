@@ -42,3 +42,5 @@
 - 2026-11-07T04:28:49.969Z · exports.snapshot.json · R7：L2 把「挑最近 12 条素材」抽成纯函数 pickRecentMaterials（原先内联在 maintain 里，无法单独测）。口径由「数组尾部 12 条」改为「按 lastSeenAt 优先、createdAt 兜底排序取前 12」。
 
 - 2026-11-07T05:52:27.724Z · exports.snapshot.json · R8/P2-12 新增无副作用读卡 readCardQuietly（合并路径与写后回读改用它，避免 loadCard 的 parkCorrupt 把主记忆文件改名）。
+
+- 2026-11-07T06:06:34.033Z · exports.snapshot.json · R9/P2-10 新增模块 core/lru.js（trimMap / touchMap）：把 8 处「超限就整体 clear()」改成只淘汰最旧的，避免第 201 个会话出现时其余会话集体失忆。

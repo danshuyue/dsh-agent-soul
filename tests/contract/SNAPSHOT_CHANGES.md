@@ -44,3 +44,5 @@
 - 2026-11-07T05:52:27.724Z · exports.snapshot.json · R8/P2-12 新增无副作用读卡 readCardQuietly（合并路径与写后回读改用它，避免 loadCard 的 parkCorrupt 把主记忆文件改名）。
 
 - 2026-11-07T06:06:34.033Z · exports.snapshot.json · R9/P2-10 新增模块 core/lru.js（trimMap / touchMap）：把 8 处「超限就整体 clear()」改成只淘汰最旧的，避免第 201 个会话出现时其余会话集体失忆。
+
+- 2026-11-07T06:47:59.737Z · exports.snapshot.json · R10/P2-15 令牌有效期与轮换：新增 TOKEN_TTL_MS、rotateApiToken、apiTokenAge；新增 POST /session/rotate 路由。

@@ -161,7 +161,9 @@ const EXPECTED_ROUTES = [
   'POST /pick', 'GET /diary/list', 'GET /diary/read', 'GET /diary/private',
   'GET /diary/sessions', 'POST /diary/bind', 'POST /diary/unbind', 'POST /diary',
   'GET /notes/list', 'GET /notes/read', 'POST /notes/save', 'POST /notes/rename',
-  'POST /notes/delete'
+  'POST /notes/delete',
+  // 2026-11-07 R10 / P2-15：手动轮换会话令牌（要带当前令牌）
+  'POST /session/rotate'
 ].sort()
 console.log('\n③ 路由分支清单（含不跑的 /pick）：')
 eq([...found].sort(), EXPECTED_ROUTES, `28 条分支齐全（实际 ${found.size} 条）`)

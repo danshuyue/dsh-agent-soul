@@ -441,12 +441,16 @@ console.log('幂等（重复 apply 不该炸）：')
 
 console.log('清理：')
 {
+  let disposeError = null
   for (const effect of ctx.__effects) {
-    if (typeof effect === 'function') {
-      try { effect() } catch { /* 清理失败不算测试失败 */ }
+    if (typeof effect !== 'function') continue
+    try {
+      effect()
+    } catch (error) {
+      disposeError = error // 收集起来断言，别用空 catch 假装没事
     }
   }
-  ok(true, 'disposer 可调用')
+  ok(disposeError === null, `disposer 调用没有抛错${disposeError ? `（${disposeError.message}）` : ''}`)
   rmSync(sandbox, { recursive: true, force: true })
 }
 

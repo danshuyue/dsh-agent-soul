@@ -67,14 +67,15 @@ console.log('跑一次 maintain（autoCompact 开）：')
     const stillOnDisk = after.records.filter((r) => archivedIds.has(r.id))
     ok(stillOnDisk.length === 0, `归档过的记录不在盘上（仍在盘上：${stillOnDisk.length}）`)
   } else {
-    ok(true, '本次没有产生归档（跳过该断言）')
+    // 2026-11-07 R12：这条原来是 ok(true) —— 前置条件没成立（压根没产生归档）
+    // 却被当成通过。一个「验证归档」的用例在没归档时沉默，等于没测。
+    ok(false, '预期这次压缩应当产生归档，但 archive.jsonl 不存在（前置条件没成立）')
   }
 }
 
 console.log('清理：')
 {
   try { rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉就算了 */ }
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

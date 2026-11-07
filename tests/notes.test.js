@@ -278,7 +278,6 @@ console.log('\n摘要：')
 console.log('\n收尾：')
 {
   rmSync(tmpRoot, { recursive: true, force: true })
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

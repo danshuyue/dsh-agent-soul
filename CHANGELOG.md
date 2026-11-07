@@ -7,6 +7,19 @@
 
 ---
 
+## 0.9.6 · 2026-11-07
+
+### 工程化
+
+- **单个测试文件加超时**（P2-29）：`tools/run-tests.mjs` 原来没有超时，一个挂死的用例（未 settle 的 await）能把 CI 拖到 GitHub 的 6 小时上限。现在默认 180 秒、`--timeout=<秒>` 可覆盖，超时按失败计并点名。
+- **CI 加 `timeout-minutes` 与 `concurrency`**（P2-30）：前者防止一次挂死烧光额度，后者让同一分支的旧 run 自动取消。
+- **Linux job 跑 Node 22 + 24 矩阵**：`engines` 要求 ≥22.19，而 24 是当前主力版本，之前从没在 24 上跑过 CI。
+- **新增 `npm run lint`（`tools/lint.mjs`）**：不引入 eslint（本项目零依赖），只查两条真出过问题的：未使用的 import、以及测试里的恒真断言 `ok(true, …)`。
+- **清掉 9 处恒真断言**：`ok(true, '临时目录已清理')` 这类直接删除（清理动作仍在，只是不再假报一条绿）；`r1-maintain-persist` 那条「没产生归档就跳过」改成**前置条件失败即红**；`smoke` 的 `disposer 可调用` 改成真断言「调用没抛错」。
+- **修掉 1 处未使用导入**：`core/api-token.js` 的 `serviceOf`。
+
+---
+
 ## 0.9.5 · 2026-11-07
 
 ### 修复

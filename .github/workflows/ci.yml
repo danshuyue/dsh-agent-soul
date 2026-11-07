@@ -5,6 +5,12 @@
 # （DPAPI 密钥、%SystemRoot% 下的 PowerShell、\ 路径分隔符、junction 安装），
 # 而 CI 一次都没跑过那条分支 —— 审查方在 Windows 机器上就撞到 2 个失败，
 # 在 CI 里永远是绿的。所以补一个 windows-latest job 并行跑。
+#
+# 2026-11-07 R12 / P2-29·30：
+#   · 每个 job 加 timeout-minutes（默认 360 分钟，一个挂死的测试能把额度烧光）
+#   · 同分支的旧 run 自动取消（concurrency），省额度也省等待
+#   · 加 lint 步骤（tools/lint.mjs：未使用导入 + 恒真断言）
+#   · linux job 跑 Node 22 + 24 矩阵（engines 要求 >=22.19，而 24 是当前主力）
 name: CI
 
 on:
@@ -12,14 +18,26 @@ on:
     branches: [main, master]
   pull_request:
 
+# 同一分支连续 push 时，取消前一次还在跑的（避免排队等旧代码的结论）
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node }}
+      - name: 静态检查（未使用导入 / 恒真断言）
+        run: node tools/lint.mjs
       - name: 全量测试（隔离 DSH_HOME，不写真实用户目录）
         run: npm test
         env:
@@ -35,11 +53,14 @@ jobs:
     # 目标平台是 Windows：DPAPI / PowerShell / 反斜杠路径 / junction 全在这条分支上，
     # 只在 Linux 上绿等于没验过。
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: 静态检查（未使用导入 / 恒真断言）
+        run: node tools/lint.mjs
       - name: 全量测试（Windows 分支：DPAPI 真的走 PowerShell）
         run: npm test
         env:

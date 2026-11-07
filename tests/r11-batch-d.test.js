@@ -104,7 +104,7 @@ console.log('P2-24 · 维护失败当天还能重试')
   const clockBefore = state.maintainClock.day
   // 用一个不存在的 cwd + 极端 config 跑一次（不会抛，但会走完置位路径）
   tick.tick(null, '/nonexistent-path-for-test', { dailyHour: 0 }, { allowMaintain: true })
-  ok(true, '维护路径能跑通（dailyHour=0 时不受时段限制）')
+  ok(typeof state.maintainClock.at === 'number' && state.maintainClock.at > 0, '维护路径真的跑了一轮（maintainClock.at 被推进）')
   ok(typeof state.maintainClock.day === 'string' || state.maintainClock.day === clockBefore,
     'maintainClock.day 形状正常（没有因为改动变成 undefined）')
 }

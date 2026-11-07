@@ -307,7 +307,6 @@ console.log('\n写盘一直失败要能放弃，否则会话永久静音（新�
 console.log('\n收尾：')
 {
   rmSync(tmpRoot, { recursive: true, force: true })
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

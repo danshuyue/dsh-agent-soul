@@ -89,7 +89,6 @@ console.log('工作区清单（listWorkspaces）：')
 console.log('清理：')
 {
   try { rmSync(fakeHome, { recursive: true, force: true }) } catch { /* 清不掉就算了 */ }
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

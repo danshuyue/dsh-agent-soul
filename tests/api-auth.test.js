@@ -67,7 +67,6 @@ console.log('\n逃生口（apiLoopbackOnly: false）：')
 console.log('\n收尾：')
 {
   rmSync(process.env.DSH_HOME, { recursive: true, force: true })
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

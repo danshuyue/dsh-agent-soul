@@ -51,16 +51,26 @@ function main() {
   // 2026-11-06 审计 Q12：失败即 break 的话，第一个红就把后面 40 多个文件全挡住，
   // 一次只能修一个问题。改成跑完全部再汇总（--stop-on-first-failure 保留旧行为）。
   const stopEarly = process.argv.includes('--stop-on-first-failure')
+  // 2026-11-07 R12 / P2-29：单个测试文件原来**没有超时** —— 一个挂死的用例
+  // （未 settle 的 await、等不到的 Promise）会把整个 CI 拖到 GitHub 的 6 小时上限。
+  // 默认 180 秒，可用 --timeout=<秒> 覆盖；超时按失败计，并在汇总里点名。
+  const timeoutArg = (process.argv.find((a) => a.startsWith('--timeout=')) ?? '').slice('--timeout='.length)
+  const timeoutMs = Math.max(10_000, Math.trunc(Number(timeoutArg) || 180) * 1000)
   for (const rel of files) {
     executed += 1
     console.log(`\n===== [${executed}/${files.length}] ${rel} =====`)
     const result = spawnSync(process.execPath, [join(projectRoot, rel)], {
       cwd: projectRoot,
       env: process.env,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL'
     })
     if (result.error) {
-      console.error(`✗ ${rel} 启动失败：${result.error.message}`)
+      const timedOut = result.error.code === 'ETIMEDOUT' || result.signal === 'SIGKILL'
+      console.error(timedOut
+        ? `✗ ${rel} 超时（>${Math.round(timeoutMs / 1000)}s）—— 视为失败，不让它拖死整个 CI`
+        : `✗ ${rel} 启动失败：${result.error.message}`)
       failed += 1
       failures.push(rel)
       if (stopEarly) break

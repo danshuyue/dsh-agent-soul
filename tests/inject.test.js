@@ -261,7 +261,6 @@ console.log('取当前用户消息（2026-10-30）：')
 
 console.log('清理：')
 rmSync(sandbox, { recursive: true, force: true })
-ok(true, '临时目录已删')
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)
 process.exit(failed === 0 ? 0 : 1)

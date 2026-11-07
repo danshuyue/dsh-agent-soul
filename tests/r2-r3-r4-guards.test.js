@@ -74,7 +74,6 @@ console.log('R4 回环门控下沉：')
 console.log('清理：')
 {
   try { rmSync(home, { recursive: true, force: true }) } catch { /* 清不掉就算了 */ }
-  ok(true, '临时目录已清理')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

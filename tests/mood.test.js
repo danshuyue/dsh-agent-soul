@@ -251,10 +251,13 @@ console.log('表情图静态路由（沙箱）：')
 
   // 2026-11-06 审计 P1-1：静态路由现在也走 Host 白名单 + 回环校验。
   // 真实浏览器一定带 Host，所以假请求也得带上 —— 不带会被 403（这是对的）。
-  const call = (url, headers = { host: '127.0.0.1:57241' }, remote = '127.0.0.1') => {
+  //
+  // 2026-11-07 修 R6：Host 判定现在可能去问宿主的 connection 服务（异步），
+  // 所以这里要 await —— 原来的同步写法会在 Promise 还没回来时就去读 head。
+  const call = async (url, headers = { host: '127.0.0.1:57241' }, remote = '127.0.0.1') => {
     let head = null
     let body = null
-    routes[0].handler(
+    await routes[0].handler(
       { url, method: 'GET', headers, socket: { remoteAddress: remote } },
       {
         writeHead(code, hdrs) { head = { code, headers: hdrs } },
@@ -265,20 +268,20 @@ console.log('表情图静态路由（沙箱）：')
   }
 
   // 免鉴权出口已经收口：没有 Host / 外部 Host / 非回环，一律 403
-  eq(call('/dsh-agent-soul/face-ok.png', {}).head.code, 403, '没有 Host → 403（不再是免鉴权出口）')
-  eq(call('/dsh-agent-soul/face-ok.png', { host: 'evil.example.com' }).head.code, 403, '外部 Host → 403')
-  eq(call('/dsh-agent-soul/face-ok.png', { host: '127.0.0.1:1' }, '192.168.1.9').head.code, 403, '非回环 → 403')
+  eq((await call('/dsh-agent-soul/face-ok.png', {})).head.code, 403, '没有 Host → 403（不再是免鉴权出口）')
+  eq((await call('/dsh-agent-soul/face-ok.png', { host: 'evil.example.com' })).head.code, 403, '外部 Host → 403')
+  eq((await call('/dsh-agent-soul/face-ok.png', { host: '127.0.0.1:1' }, '192.168.1.9')).head.code, 403, '非回环 → 403')
 
-  const png = call('/dsh-agent-soul/face-ok.png')
+  const png = await call('/dsh-agent-soul/face-ok.png')
   eq(png.head.code, 200, '表情图能取到')
   eq(png.head.headers['Content-Type'], 'image/png', 'Content-Type 是 image/png（不是 JSON）')
   ok(Buffer.isBuffer(png.body) && png.body.length > 1000, '吐出来的是真文件字节')
   ok(png.body[0] === 0x89 && png.body.slice(1, 4).toString() === 'PNG', '字节头是 PNG 魔数')
   ok(String(png.head.headers['Cache-Control']).includes('immutable'), '标了长期缓存（图不改）')
 
-  eq(call('/dsh-agent-soul/face-nope.png').head.code, 404, '不认识的文件 404')
-  eq(call('/dsh-agent-soul/..%2f..%2fpackage.json').head.code, 404, '路径穿越被白名单挡住')
-  eq(call('/dsh-agent-soul/package.json').head.code, 404, '只能取那五张图')
+  eq((await call('/dsh-agent-soul/face-nope.png')).head.code, 404, '不认识的文件 404')
+  eq((await call('/dsh-agent-soul/..%2f..%2fpackage.json')).head.code, 404, '路径穿越被白名单挡住')
+  eq((await call('/dsh-agent-soul/package.json')).head.code, 404, '只能取那五张图')
 
   rmSync(sandbox, { recursive: true, force: true })
   delete process.env.DSH_HOME

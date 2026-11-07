@@ -36,3 +36,5 @@
 - 2026-11-07T03:35:51.657Z · exports.snapshot.json · R05/P1-D3 把「还要不要再找她写」的判定抽成纯函数 shouldAskAgain 并导出（原先是 followup 里的一段内联判断，无法单独测试）。行为：force 一定重写；文件不存在要写；since=0 保持旧行为；since>0 时只有比基线新才算她这轮写的。
 
 - 2026-11-07T03:37:15.461Z · exports.snapshot.json · R05/P2-3 把 PowerShell 的超时与熔断期做成可审阅的常量（SHELL_TIMEOUT_MS 20s→6s、SHELL_BREAKER_MS 30s），并把「这次失败要不要熔断」抽成纯函数 shouldTripBreaker 导出以便跨平台测试。
+
+- 2026-11-07T04:07:38.911Z · exports.snapshot.json · R6：Host 信任判定改为「以宿主 connection.requestRejection 为准 + 插件白名单兜底」，新增 checkHostTrust/allowedHostList/isLoopbackHostName/noteRemoteHostOnce 四个导出；同时修正 Origin 与 Host 的端口比较（规范化权威 + 回环间允许不同端口）。

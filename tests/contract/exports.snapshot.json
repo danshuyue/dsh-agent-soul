@@ -20,12 +20,16 @@
     "SESSION_ROUTE",
     "TOKEN_HEADER",
     "__resetApiTokenForTest",
+    "allowedHostList",
     "apiTokenMode",
     "checkApiRateLimit",
+    "checkHostTrust",
     "checkSessionRateLimit",
     "currentApiToken",
     "isAllowedApiHost",
+    "isLoopbackHostName",
     "issueSessionToken",
+    "noteRemoteHostOnce",
     "verifyApiToken"
   ],
   "core/archive.js": [

@@ -579,7 +579,25 @@ DSH 按 4 字符/token 粗算，中文真实是它的 1.4~1.9 倍。
 |---|---|
 | `DSH_SOUL_API_TOKEN` | 显式固定令牌。设置后 `/session` **不再发放**，前端必须自带 token |
 | `DSH_SOUL_ALLOW_REMOTE_API=1` | 允许通过 `POST /config` 把 `apiLoopbackOnly` 改成 `false`（宿主走反代、`remoteAddress` 不是回环时自救）。默认拒绝 |
+| `DSH_SOUL_ALLOWED_HOSTS` | **反向代理部署用**。逗号分隔的 Host 白名单，例如 `110.41.147.33,soul.example.com`。宿主没有 `connection` 服务时才会用到它 |
 | `DSH_HOME` | 数据目录，测试与开发务必指向临时目录 |
+
+### 反向代理部署（nginx 等）
+
+Host 校验**以宿主为准**：插件会先问宿主 `ctx.connection.requestRejection(req)`，宿主认 `--trusted-host` 就放行；宿主没有这个服务时才用 `DSH_SOUL_ALLOWED_HOSTS` 兜底。
+
+> 0.9.0 只在插件侧比对 Host，反代 + 公网域名/IP 下会把 **整个 `/api/soul/*` 挡成 403**，连免令牌的 `/session` 也过不去，设置页「灵魂」八个标签全部空白。0.9.1 起改为以宿主判定为准。
+
+推荐做法，二选一：
+
+1. **让宿主认识这个 Host**（首选）：启动 dsh 时加上 `--trusted-host soul.example.com`；
+2. **给插件配白名单**：`DSH_SOUL_ALLOWED_HOSTS=soul.example.com`。
+
+> ⚠️ **`DSH_` 是 DSH 启动期的保留前缀**：把 `DSH_SOUL_ALLOWED_HOSTS` 写进 `.env` 会让 dsh **直接起不来**。只能通过 `systemd` 的 `Environment=`、`docker -e`、或 shell 里 `export` 设置 —— 这是最容易踩的坑，本报告的排查者也是踩了才知道。
+
+**反代下 API 是能从外部访问的**：此时请求的 `remoteAddress` 是代理（通常是 `127.0.0.1`），插件无法区分"用户本人"和"任何能连到这个域名的人"。请务必在上游加一道你自己的鉴权（`auth_basic`、IP 白名单、或 OAuth），或者改用固定令牌 `DSH_SOUL_API_TOKEN`。插件会在日志里打一行「接口正被非本机 Host 访问」提醒。
+
+被拒时 `403` 的响应体会带实际收到的 `Host` 和当前允许列表，不用再猜。
 
 固定令牌模式下，宿主需在加载 `lib/client.js` **之前**写入 `globalThis.__SOUL_API_TOKEN__ = '<同一个值>'`；只设服务端变量而不注入页面，设置页会全部 401。
 

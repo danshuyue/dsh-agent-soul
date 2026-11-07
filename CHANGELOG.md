@@ -7,10 +7,15 @@
 
 ---
 
-## 0.9.2 · 未发布（仓库已就绪）
+## 0.9.2 · 2026-11-07
 
 ### 修复
 
+- **合并路径会把主记忆文件挪走**（P2-12，数据安全级）：`saveCardMerged` 在合并前调 `loadCard`，而它的 catch 会 `parkCorrupt` —— 一次瞬时读失败就把主卡改名 + 置只读，随后写盘往空路径写新卡。新增无副作用读 `readCardQuietly`，合并与写后回读都改用它；`loadCard` 只留给真正的加载路径。
+- **鉴权链没有任何兜底**：Origin / Host / 回环 / 令牌四段校验原先裸奔在 handler 体里，任何一段将来抛错都会逃出 `webServer` → 未捕获 → **宿主进程退出**。现在整段包一层 catch，异常记日志 + 回 500 + 追踪码。
+- **自定义 judge provider 静默失败**（P2-19）：`judgeProvider` 配成非 siliconflow 时会把 provider 原样交给宿主，宿主不认识就每轮判定失败、只留一行日志，表现为「她情绪一直不变」。现在第一次调用就明确告警。
+- **设置页改配置会丢**（P2-25/26）：三个 Tab 原来都 POST **全量**配置，跨 Tab 保存互相覆盖；文本输入框还是逐键 POST。现在各 Tab 只发改动键（服务端本就按 key 合并），并加 300ms 防抖。
+- **记忆搜索逐键重取**（P2-28）：带 query 时 300ms 防抖。
 - **日记「文件存在但不完整」死循环**：`startupWork` 判定要重写，但 `askAgentToWrite` 只要看到文件存在就认为「她写好了」，于是每轮空转、日志写「日记完成」，内容永远补不回来。现在「要不要再找她写」多了时间基线（`shouldAskAgain`）。
 - **兜底覆盖她迟到写出的日记**：`waitForWrite` 超时后插件兜底写盘，会盖掉她几秒后落盘的那篇。`writeDiaryFile` 增加 `skipIfNewerThan`，比她旧才写。
 - **`lastTalkAtOf` 只扫末 80 行**：文件本就整份读进内存，只遍历尾部纯属遗留写法；多会话交错时最后一句会被挤出窗口，导致「半天版」被判完整。
@@ -23,6 +28,8 @@
 ### 变更
 
 - `lib/state/maintain.js` 新增 `pickRecentMaterials`（纯函数，可单独测）。
+- `lib/memory/card-io.js` 新增 `readCardQuietly`（无副作用读卡）。
+- 客户端新增 `apiPostDebounced`（按 key 防抖的 POST）。
 
 ---
 

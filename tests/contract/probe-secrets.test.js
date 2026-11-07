@@ -38,8 +38,13 @@ try {
 
   console.log(`\n① 保存（平台：${process.platform}）`)
   const saved = saveSecret('probe_secret', PLAIN)
-  eq(saved.ok, true, 'saveSecret 成功')
+  // 2026-11-07：断言里带上失败原因 —— 只在 CI 上失败过一次，而当时只看到「期望 true」
+  // 完全不知道底层为什么没写成。诊断信息必须留在能看见的地方。
+  eq(saved.ok, true, `saveSecret 成功${saved.ok === true ? '' : `（失败原因：${saved.error ?? '未给出'}）`}`)
   eq(saved.encrypted, isWindows, `encrypted 标记与平台一致（Windows=${isWindows}）`)
+  if (saved.ok !== true) {
+    console.error(`    诊断：DSH_HOME=${process.env.DSH_HOME} secretPath=${secretPath('probe_secret')}`)
+  }
   const raw = readFileSync(secretPath('probe_secret'), 'utf8')
   ok(!raw.includes(PLAIN), '文件里不含明文')
   if (isWindows) ok(raw.startsWith('dpapi:'), 'Windows：密文带 dpapi: 前缀')

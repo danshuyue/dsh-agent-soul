@@ -764,6 +764,7 @@
   ],
   "state/maintain.js": [
     "maintain",
+    "pickRecentMaterials",
     "writeAutoMemories"
   ],
   "state/mood-state.js": [

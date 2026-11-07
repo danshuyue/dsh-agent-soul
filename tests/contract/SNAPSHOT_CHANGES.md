@@ -38,3 +38,5 @@
 - 2026-11-07T03:37:15.461Z · exports.snapshot.json · R05/P2-3 把 PowerShell 的超时与熔断期做成可审阅的常量（SHELL_TIMEOUT_MS 20s→6s、SHELL_BREAKER_MS 30s），并把「这次失败要不要熔断」抽成纯函数 shouldTripBreaker 导出以便跨平台测试。
 
 - 2026-11-07T04:07:38.911Z · exports.snapshot.json · R6：Host 信任判定改为「以宿主 connection.requestRejection 为准 + 插件白名单兜底」，新增 checkHostTrust/allowedHostList/isLoopbackHostName/noteRemoteHostOnce 四个导出；同时修正 Origin 与 Host 的端口比较（规范化权威 + 回环间允许不同端口）。
+
+- 2026-11-07T04:28:49.969Z · exports.snapshot.json · R7：L2 把「挑最近 12 条素材」抽成纯函数 pickRecentMaterials（原先内联在 maintain 里，无法单独测）。口径由「数组尾部 12 条」改为「按 lastSeenAt 优先、createdAt 兜底排序取前 12」。

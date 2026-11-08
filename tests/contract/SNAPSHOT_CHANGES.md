@@ -47,4 +47,12 @@
 
 - 2026-11-07T06:47:59.737Z · exports.snapshot.json · R10/P2-15 令牌有效期与轮换：新增 TOKEN_TTL_MS、rotateApiToken、apiTokenAge；新增 POST /session/rotate 路由。
 
+- 2026-11-08T07:11:53.227Z · exports.snapshot.json · 新增 lib/core/session-groups.js：日记流水按工作区→会话分组
+
+- 2026-11-08T07:11:53.328Z · behavior-golden.json · 日记对话文本改为按工作区→会话分组（pickConversation 输出多两行标题），行为有意变更
+
 - 2026-11-08T07:43:05.198Z · exports.snapshot.json · R13 修复 KNOWN-ISSUES #9：env.js 新增 sanitizeLogText 导出（清洗 body 派生值进日志）；mood/digest、memory/card、extract 等仅内部实现无导出变化
+
+- 2026-11-08T08:00:11.264Z · behavior-golden.json · 0.9.8 合并两处并行改动后的行为基线：① origin/main 的日记流水按工作区→会话分组（pickConversation 输出多了两行标题）；② R13 的 diary/compose.js 与 feed.js 修复。两者叠加使 behavior-golden 的哈希与长度变化，属有意变更。
+
+- 2026-11-08T08:00:11.361Z · exports.snapshot.json · 0.9.8 合并两处并行改动后的行为基线：① origin/main 的日记流水按工作区→会话分组（pickConversation 输出多了两行标题）；② R13 的 diary/compose.js 与 feed.js 修复。两者叠加使 behavior-golden 的哈希与长度变化，属有意变更。

@@ -32,6 +32,9 @@
 
 - `env.js` 新增 `sanitizeLogText` 导出；`tools/lint.mjs` 仍零问题。
 - 与 `d243fd7`（第三方许可声明）合并后，`lib/client.js` 里的原作者署名注释完整保留。
+- **合并同期另一条改动**：日记对话流水改为按「工作区 → 会话 → 时间」分组（新增 `lib/core/session-groups.js`），
+  同时开着的几个对话不再交错。这是一次**有意的输出变更**，`behavior-golden` 基线已按正规通道刷新
+  （理由记为：分组 + R13 的 compose/feed 修复叠加）。
 
 ---
 

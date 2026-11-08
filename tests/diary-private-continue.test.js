@@ -36,13 +36,15 @@ test('续写（公开是她刚在本会话写的）：不复述摘要与连续�
   assert.ok(msg.includes('还在上文'), '应指出公开那篇在上文')
 })
 
-test('续写时仍保留私密独有的材料：情绪记录 + 全部历史', () => {
+test('续写时保留情绪记录，但不再投前几天的日记（2026-11-08 改）', () => {
   const msg = composePrivateMessage({}, '2026-11-05', summary, recent, mood, thread, {
     continueFromPublic: true,
     publicWrittenByAgent: true
   })
   assert.ok(msg.includes(mood), '情绪记录是私密独有的，必须保留')
-  assert.ok(msg.includes('全部历史'), '私密历史公开那条没有，必须保留')
+  assert.ok(!msg.includes('全部历史'), '前几天日记不再重复投')
+  assert.ok(!msg.includes('最近几天的全部日记'), '不该再有历史块')
+  assert.ok(msg.includes('action=look'), '要给一个自己翻的出口')
 })
 
 test('续写时正文规范没丢：仍要求用 soul_diary 写 kind=private', () => {

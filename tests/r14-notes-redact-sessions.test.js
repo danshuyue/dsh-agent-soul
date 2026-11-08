@@ -8,7 +8,7 @@
  *   #15 redact 卡号判定：Luhn + 发卡前缀 + 上下文词，订单号/雪花 ID 不再误抹
  *   #2  /diary/sessions 扫盘兜底加 60s TTL 缓存（TTL 内新建的目录不出现 → 证明走了缓存）
  */
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, utimesSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -69,12 +69,19 @@ console.log('#21 · readNote 读到的是与磁盘一致的条目')
 // ---------------------------------------------------------------------------
 {
   const text2 = '第二版正文，比第一版长不少。'.repeat(20)
-  writeFileSync(join(notesDir(), 'r14-外部改写.md'), text2, 'utf8')
+  const file = join(notesDir(), 'r14-外部改写.md')
+  writeFileSync(file, text2, 'utf8')
   __resetNotesCacheForTest()
   reconcile() // 索引记录此刻的 chars
   // 外部把文件整个改写（长度变了，mtime 变新）
   const text3 = `${text2}追加的一段让长度明显变化的内容。`
-  writeFileSync(join(notesDir(), 'r14-外部改写.md'), text3, 'utf8')
+  writeFileSync(file, text3, 'utf8')
+  // 2026-11-09 CI 假红修正：reconcile 有一条「mtime 比 updatedAt 晚 1ms 以内就跳过重读」的
+  // 快路（吃文件系统的 mtime 抖动）。连续两次 writeFileSync 在 Linux 上常落在同一毫秒，
+  // 于是这条断言在 ubuntu 上红、在 Windows 上绿 —— 测试在测「磁盘有多快」，不是「readNote 拿没拿到旧值」。
+  // 现在把 mtime 明确推到 5 秒后，与写入速度无关。
+  const later = new Date(Date.now() + 5000)
+  utimesSync(file, later, later)
   __resetNotesCacheForTest()
 
   const res = readNote('r14-外部改写')

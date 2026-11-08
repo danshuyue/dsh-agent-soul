@@ -1,7 +1,7 @@
-# 交接文档 · dsh-agent-soul `0.9.9`
+# 交接文档 · dsh-agent-soul `0.9.10`
 
 > 给接手的人（或 AI）。读完这一份就能开工，不需要翻聊天记录。
-> 写作时间：2026-11-08（0.9.9 于 2026-11-09 更新）· 对应提交 `1b51d58` · tag `v0.9.9` · npm `latest = 0.9.9`
+> 写作时间：2026-11-08（0.9.10 于 2026-11-09 更新）· tag `v0.9.10` · npm `latest = 0.9.10`
 
 ---
 
@@ -33,7 +33,7 @@
 
 | 指标 | 数值 |
 |---|---|
-| 测试 | **85** 个测试文件 / 0 失败；契约 **11** / 0 |
+| 测试 | **87** 个测试文件 / 0 失败；契约 **11** / 0 |
 | 代码量 | `lib/` 97 个文件 / ~19.9k 行 |
 | 运行时依赖 | **零**（`dependencies` 为空，刻意如此） |
 | 支持 | Node ≥ 22.19；CI 跑 Node 22 + 24 + Windows |
@@ -191,11 +191,11 @@ git switch -c fix/your-topic main   # 从干净 main 拉
 
 ---
 
-## 5. 当前遗留（8 条，全部是「结构」而非「功能」）
+## 5. 当前遗留（3 条）
 
 > 完整版在 [`docs/KNOWN-ISSUES.md`](KNOWN-ISSUES.md)，每条带代码位置、影响、建议改法、验证程度（A 实测 / B 读代码 / C 仅归档）。
 >
-> **`0.9.9` 之后，「某个功能坏了」类的已知问题已经清零。** 剩下的只有一类：**代码结构**。
+> **`0.9.10` 之后，「功能坏了」和「零散清理」类问题**全部清零**。** 只剩两条大文件重构 + 一条受宿主限制的。
 
 ### 唯一的「用户能感觉到」的一条
 
@@ -203,17 +203,16 @@ git switch -c fix/your-topic main   # 从干净 main 拉
 |---|---|---|---|
 | **23** | 「错误边界」接不住**渲染期**异常 → 白屏 | `lib/client/app.js` | 需要 `React.Component` 基类；本 bundle 作用域里没有，**做不了**，只能等宿主暴露 |
 
-### 可维护性（7 条，改起来有风险、但改了不解决用户问题）
+### 大文件重构（2 条，有依赖顺序，别反过来）
 
 | # | 问题 | 建议 |
 |---|---|---|
-| **26** | `diary/scheduler.js` 687 行混五种职责 | 拆 `diary/agent.js` + `diary/deliver.js` |
-| **27** | `diary/compose.js` 591 行四类职责，`composeDiarySetup` 放错位置 | 移到 `scheduler` 或 `diary/agent.js` |
-| **28** | `segment-memory.js` 的 `text()` ~150 行、8 种职责的上帝函数 | 拆 `runToneForTurn` / `collectDiaryMaterial` / `computeRecallText` / `applyBudget` |
-| **32** | `build-client.mjs` 的 `ORDER` 硬编码；`DECL_RE` 只认 4 空格的 `var/function` | 自动扫描片段 + 放宽正则（`let/const` 现在逃检） |
-| **33** | `revOf` 三处重复、`pad2`/`dateKeyOf` 同构重复、测试断言工具复制 40+ 份 | 收敛到 `constants.js` 与 `tests/helpers/` |
-| **34** | `summarizeConversations` 死代码仍从门面导出；`askAgentToWrite` 的 `force` 参数恒 false | 删掉或标注 |
-| **35** | `docs/preview.html` 手抄 `styles.js` 整套 CSS | 生成或加一致性检查 |
+| **27** | `diary/compose.js` 591 行四类职责，`composeDiarySetup` 放错位置 | 先把 `composeDiarySetup` 移回 `scheduler` 或新建 `diary/agent.js`，再按职责切四块 |
+| **26** | `diary/scheduler.js` 687 行混五种职责 | 拆 `diary/agent.js` + `diary/deliver.js`。**必须最后做**：它依赖 #27 的产物 |
+
+> 已清掉的：#28（`text()` 拆成三个私有函数）、#32（构建拒绝未登记片段）、
+> #33（`revOf` 收敛）、#34（死代码标注；并更正了「`force` 恒 false」这个**我方文档错误** ——
+> `regenerateDiary` 实际传了 `{ force: true }`）、#35（preview CSS 已漂移，现为逐字符门禁）。
 
 ### 明确「不修」的（想清楚了，别捡起来）
 
@@ -234,19 +233,21 @@ git switch -c fix/your-topic main   # 从干净 main 拉
 
 ## 6. 建议的下一轮顺序（0.9.9 后）
 
-**功能类问题已清零**，剩下的都是重构。顺序建议：
+**功能类与清理类问题已清零**，只剩两条大文件重构。顺序是硬约束（先 #27 后 #26）：
 
-1. **`#28 segment-memory.js` 的 `text()`** —— 8 种职责、~150 行。它是最难单测的一块，
-   先补特征测试再拆；拆成 `runToneForTurn` / `collectDiaryMaterial` / `computeRecallText` / `applyBudget`。
-2. **`#27 diary/compose.js`** —— 591 行四职责，`composeDiarySetup` 放错位置，移到 `scheduler` 或 `diary/agent.js`。
-3. **`#26 diary/scheduler.js`** —— 687 行五职责，拆 `diary/agent.js` + `diary/deliver.js`。
-   **必须放最后**：它依赖前两步的产物，先拆它会把 compose 的边界搞得更乱。
-4. **`#32–#35`（零风险清理）** —— 构建脚本硬编码、重复实现、死代码、预览页 CSS。
-   可以和上面同轮做，也可以单独一次提交。
-5. **`#23`** —— 除非宿主文档明确暴露了 `React.Component`，否则不要动。
+1. **`#27 diary/compose.js`（591 行四职责）** —— 先把 `composeDiarySetup` 移到 `scheduler`
+   或新建的 `diary/agent.js`，再按职责切四块。
+2. **`#26 diary/scheduler.js`（687 行五职责）** —— 拆 `diary/agent.js` + `diary/deliver.js`。
+   **必须放最后**：它依赖 #27 的产物，先拆它会把 compose 的边界搞得更乱。
+3. **`#23`** —— 除非宿主文档明确暴露了 `React.Component`，否则不要动。
 
-> 重构的纪律：**每一轮只拆一个文件**，拆之前先把该文件的特征测试补齐（断言当前行为，而不是理想行为），
-> 拆完测试必须一条不改就全绿。做不到就说明拆错了。
+> 重构的纪律（R15 已验证有效，照抄）：
+> **先补特征测试钉住当下行为 → 再拆 → 特征测试一条不改必须全绿 → 毒化一次证明测试网有效。**
+>
+> R15 的两个实践细节值得学：
+> ① 特征测试**单独一个提交**、并且要在**拆分之前**就在旧代码上全绿 —— 否则它可能断言的是实现；
+> ② 毒化点要选对：R15 第一版选了「粘性复用分支」，但召回是确定性的、重算结果字节相同 → 不会红，
+> 换到「回声头」才红。**毒化不红时，先怀疑毒化点选错了，别急着怀疑测试无效。**
 
 ---
 

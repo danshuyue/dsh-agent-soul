@@ -1,11 +1,16 @@
-# 已知问题清单（截至 0.9.9；R13 划掉 23 条，R14 再划 4 条）
+# 已知问题清单（截至 0.9.10；R13 划 23 条、R14 划 4 条、R15 划 5 条）
 
 > 2026-11-08 R13 轮：~~划线~~ 条目已修，测试锚定在 `tests/r13-batch.test.js`（36 断言），
 > 修法见提交历史（fix/known-issues-r13 分支 R13 批次一～五）。
 >
 > **2026-11-09 R14 轮（0.9.9）**：又划掉 **#2 #15 #20 #21** 四条，测试锚定在
 > `tests/r14-notes-redact-sessions.test.js`（13 断言），四条均经发布方毒化复核为红。
-> **仍打开：#23 #26–#28 #32–#35 与第五、六节。**
+>
+> **2026-11-09 R15 轮（0.9.10，重构）**：划掉 **#28 #32 #33 #34 #35**。
+> #28 的 `text()` 拆成三个文件私有函数（无新导出，契约只多了 #33 的 `revOf`）；
+> 特征测试 `tests/r15-segment-feature.test.js`（13 断言）**先于拆分提交**，拆分后一条不改全绿。
+> #35 是**真问题**：preview 的 CSS 确实已经漂移到旧类名，现在是逐字符比对的硬门禁。
+> **仍打开：#23 #26 #27 与第五、六节。**
 >
 > **2026-11-08 复核补丁（0.9.8）**：R13 的 #1（`/diary/list` 只读头部 400 字节）按字节切 UTF-8，
 > 中文预览末尾会出现 `�`（U+FFFD）—— 400 % 3 ≠ 0，边界必然落在汉字中间。
@@ -77,14 +82,14 @@
 |---|---|---|---|
 | 26 | `diary/scheduler.js` 687 行混五种职责 | 改一处要读整文件 | 拆 `diary/agent.js` + `diary/deliver.js` |
 | 27 | `diary/compose.js` 591 行四类职责，`composeDiarySetup` 放错位置 | 同上 | 移到 `scheduler` 或 `diary/agent.js` |
-| 28 | `host/runtime/segment-memory.js` 的 `text()` 约 150 行、8 种职责的上帝函数 | 难以单测 | 拆 `runToneForTurn` / `collectDiaryMaterial` / `computeRecallText` / `applyBudget` |
+| ~~28~~ ✅已修(2026-11-08 R15) | `host/runtime/segment-memory.js` 的 `text()` 约 150 行、8 种职责的上帝函数 | 难以单测 | 拆 `collectDiaryMaterial` / `memoryBudgetPlan` / `computeRecallText`（均文件私有，无新导出） |
 | ~~29~~ ✅已修(2026-11-08 R13) | `index.js` 顶部注释的注入顺序漏了 `soul:data-policy` | 文档与代码漂移 | 补一句 |
 | ~~30~~ ✅已修(2026-11-08 R13) | `extract` 游标对「无 id 会话」统一用 `'default'` 键 | 两个会话互吃扫描窗口 | 用会话对象身份做键 |
 | ~~31~~ ✅已修(2026-11-08 R13) | `TITLE_CACHE` / `PATH_CACHE` 全仓库唯一无上限缓存 | 长跑内存缓慢增长 | 用 `trimMap` 限一下 |
-| 32 | `build-client.mjs` 的 `ORDER` 硬编码；符号扫描 `DECL_RE` 只认 4 空格的 `var/function` | 新增片段漏登记会静默丢失；`let/const` 逃检 | 自动扫描 + 放宽正则 |
-| 33 | `revOf` 三处逐字重复；`pad2`/`dateKeyOf` 同构重复；测试断言工具在 40+ 文件逐份复制 | 改一处要改 N 处 | 收敛到 `constants.js` 与 `tests/helpers/assert.mjs` |
-| 34 | `summarizeConversations` 成死代码仍从门面导出；`askAgentToWrite` 的 `force` 参数恒 false | 误导读者 | 删掉或标注 |
-| 35 | `docs/preview.html` 手工复制 `styles.js` 整套 CSS | 改样式后预览过期 | 生成或加一致性检查 |
+| ~~32~~ ✅已修(2026-11-08 R15) | `build-client.mjs` 的 `ORDER` 硬编码；符号扫描 `DECL_RE` 只认 4 空格的 `var/function` | 新增片段漏登记会静默丢失；`let/const` 逃检 | 构建反向扫描 + 未登记即失败；`DECL_RE` 放宽到 `let/const` |
+| ~~33~~ ✅已修(2026-11-08 R15) | `revOf` 三处逐字重复（`card.js`/`card-io.js`/`state/cards.js`） | 改一处要改 N 处 | 收敛到 `memory/constants.js` 单份导出（快照 +revOf，已入档） |
+| ~~34~~ ✅已处理(2026-11-08 R15) | `summarizeConversations` 主流程已不用 | 误导读者 | docblock 标注 ⚠️ 废弃（测试迁移后连门面导出一起删）。**更正**：`force` 参数**不是**死代码 —— `regenerateDiary` 传 `{ force: true }`，手动重写在用 |
+| ~~35~~ ✅已修(2026-11-08 R15) | `docs/preview.html` 手工复制 `styles.js` 整套 CSS | 改样式后预览过期 | 已实测漂移（`.soul-legend` vs `.soul-banner`）；同步 + 新增 `tests/preview-css.test.js` 逐字符比对 |
 
 ---
 
@@ -107,18 +112,21 @@
 
 ---
 
-## 七、建议的下一轮顺序（0.9.9 后更新）
+## 七、建议的下一轮顺序（0.9.10 后更新）
 
-前四批（一致性 / 日志请求层 / 性能 / 前端里的多数）已在 R13、R14 清完。剩下的是：
+只剩两条，且都是「大文件」重构，按依赖顺序：
 
-1. **重构：#26–#28**（三个大文件）—— **单独一轮**，先补特征测试再拆。这是当前最大的一块技术债，
-   也是后面所有改动的摩擦来源。建议顺序：`segment-memory.js` 的 `text()` → `diary/compose.js` → `diary/scheduler.js`。
-2. **#32–#35**（构建脚本硬编码、重复实现、死代码、预览页 CSS）—— 零风险清理，可以和重构同轮做。
-3. **#23**（渲染期白屏）—— 除非宿主文档明确暴露了 `React.Component`，否则不要动。
-4. **第五节「不修」的 3 类** —— 保持不修，理由已写。
+1. **#27 `diary/compose.js`（591 行四职责）** —— 先把 `composeDiarySetup` 移回 `scheduler` 或新建
+   `diary/agent.js`，再按职责切四块。
+2. **#26 `diary/scheduler.js`（687 行五职责）** —— **必须最后做**：它依赖前一步的产物，
+   先拆它会把 compose 的边界搞得更乱。
+3. **#23（渲染期白屏）** —— 除非宿主文档明确暴露了 `React.Component`，否则不要动。
 
-> 这一轮之后，**「某个功能坏了」类的已知问题已经清零**，剩下的都是「代码结构不好」和
-> 「特定部署形态下才成立」的差异。换句话说：功能面可以放心用，改造成本才是接下来要还的账。
+重构纪律（R15 已验证有效，照抄）：**先补特征测试钉住当下行为 → 再拆 → 特征测试一条不改必须全绿 →
+毒化一次证明测试网有效**。R15 的 13 条特征断言就是这么用的。
+
+> 这一轮之后，**功能类与清理类已知问题全部清零**。剩下的两条是纯重构，
+> 风险已经从「用户会踩到」变成「改的人会踩到」。
 
 ---
 

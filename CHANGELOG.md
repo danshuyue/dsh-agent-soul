@@ -7,6 +7,36 @@
 
 ---
 
+## 0.9.10 · 2026-11-09
+
+外部复检轮 **R15（重构轮）**，3 个提交 / 13 文件 / +451 −137。**对外行为零变化**，
+四道门禁（lint / 87 测试 / 11 契约 / bundle 零 diff）全绿；特征测试先于拆分提交，拆分后一条未改。
+
+### 重构
+
+- **`segment-memory.js` 的 `text()` 拆分**（#28）：~150 行的编排降为 ~35 行调度 + 三个**文件私有**函数
+  （`collectDiaryMaterial` / `memoryBudgetPlan` / `computeRecallText`）。无新增导出，契约零变化。
+  分开的五条路径（首轮整卡 / 关召回老路 / 退化 query / 粘性复用 / 按句召回）与粘性读写位置逐个比对一致，
+  所有事故注释随代码搬到对应函数。
+
+### 修复
+
+- **preview.html 的 CSS 已经漂移了**（#35）：手工抄的那份还停在 `.soul-legend`，`styles.js` 早已是
+  `.soul-banner` —— 也就是说预览页一直是错的，只是没人比对过。现在同步 + 新增
+  `tests/preview-css.test.js` 逐字符比对（塞一个空格就红）。
+- **构建会静默吞掉未登记的片段**（#32）：`lib/client/` 下不在 `ORDER` 里的文件不报错、拼不进 bundle、
+  页签一片空白。现在反向扫描，未登记直接构建失败并列出文件名；`DECL_RE` 同时放宽到 `let/const`
+  （原来顶层 `let/const` 逃过跨片段重名检查）。
+
+### 变更
+
+- **`revOf` 三处逐字重复收敛到 `memory/constants.js`**（#33）：快照 `+revOf`，理由已入 `SNAPSHOT_CHANGES.md`。
+- `summarizeConversations` 标注废弃（#34，主流程已不用，`tests/diary.test.js` 仍经门面在测）。
+  **更正一处文档错误**：`askAgentToWrite` 的 `force` 参数**不是**死代码 ——
+  `regenerateDiary` 确实传 `{ force: true }`，手动重写在用。
+
+---
+
 ## 0.9.9 · 2026-11-09
 
 外部复检轮 **R14**（按 `docs/HANDOFF.md` §8 只交付不发布），本会话逐条复核后合并发布。

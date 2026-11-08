@@ -5,6 +5,26 @@
 
 ---
 
+## 最重要的一条（先读这个，再看别的）
+
+**你负责改，不负责发。**
+
+- ❌ **不要** `npm publish`
+- ❌ **不要** 打 tag（`git tag`）
+- ❌ **不要** 改 `package.json` 的 `version`
+- ❌ **不要** 动 `CHANGELOG.md`
+
+做完之后**交付**（分支 + diff + 进度档案，格式见 §8），由委托方的常驻助手**复核后统一发布**。
+发布这件事牵涉版本号、CHANGELOG、tag、npm、安装副本同步五处一致性，还有一个我踩过的坑：
+`npm publish` 之后立刻 `npm view` 会报 404，必须等 2–4 分钟传播 —— 这些由发布者一个人扛，
+不要让两边各发一半。
+
+> 上一轮的实际情况可以佐证：上一版（`0.9.8`，含 R13 的 23 条修复）就是外部 AI 改的，
+> 交付了分支 + diff + 进度档案，由本人复核后发的。**复核时发现其中一条（#1）其实没修好** ——
+> 所以 §8 的交付物里必须自带「不修就红」的证据，别只写「已修」。
+
+---
+
 ## 0. 一句话现状
 
 这是一个 DSH/Cordis 插件，给「糖糖」这个 AI 伴侣做**人格 + 记忆 + 心情 + 目的 + 笔记 + 日记**。
@@ -157,6 +177,18 @@ CI 会 `git diff --exit-code -- lib/client.js tests/contract/`，忘了重建直
 未使用的 import、测试里的恒真断言 `ok(true, …)`。
 真需要「到这里没抛就算过」，行尾写 `// lint-allow:ok-true` 并说明理由。
 
+### ⑧ 只在分支上改，不发布
+
+```bash
+git switch -c fix/your-topic main   # 从干净 main 拉
+```
+
+**不 `npm publish`、不打 tag、不改 `package.json` 的 `version`、不改 `CHANGELOG.md`。**
+版本号 / 发版 / tag / 安装副本同步都由复核方统一做（见 §8）。
+
+理由不只是「分工」：这五处必须同时改对，两边各改一半就会出现
+「npm 上是 0.9.9、tag 是 v0.9.8、package.json 是 0.10.0」这种再也对不上的状态。
+
 ---
 
 ## 5. 当前遗留（12 条，按「会不会踩到」排序）
@@ -223,31 +255,81 @@ CI 会 `git diff --exit-code -- lib/client.js tests/contract/`，忘了重建直
 | 测试互相踩 `DSH_HOME` | 随机 ENOENT / 数据串味 | 每个测试文件 `mkdtempSync` 独立目录，结束时删 |
 | 时区 | 日期相关断言漂 | 跑测试固定 `TZ=UTC`；代码里**不要**再用 `toISOString().slice(0,10)` 当本地日期 |
 | `gh` 偶发 502 | 查不到 CI | 抓 `https://github.com/<repo>/actions` 页面看「completed successfully / failure」 |
-| npm publish 后立刻 `npm view` | 报 404 / notarget | 等待 2–4 分钟传播，别重复发布 |
+| npm publish 后立刻 `npm view` | 报 404 / notarget | **发布方的事**；你在交付里别碰发布，就不会踩到 |
 
 ---
 
-## 8. 发布流程（照抄即可）
+## 8. 交付流程（你只交付，不发布）
+
+### 8.1 你要做的
 
 ```bash
-# 1. 改版本 + 写 CHANGELOG（格式：## 版本 · 日期，分类：新增/变更/修复/破坏性）
-# 2. 验证
-npm run lint && npm test && npm run test:contracts
+# 1. 从干净的 main 拉一个分支（不要直接在 main 上改）
+git switch -c fix/your-topic main
+
+# 2. 改代码 + 补测试 + 走 REDGREEN（§4②）
+
+# 3. 验证（三道，缺一不可）
+npm run lint
+npm test
+npm run test:contracts
 git diff --exit-code -- lib/client.js tests/contract/   # 必须干净
 
-# 3. 提交 + 推
-git add -A && git commit -m "..." && git push origin main
-# 4. CI 三个 job 全绿（test(22) / test(24) / windows）再看下一步
+# 4. 提交到**自己的分支**（不推 main）
+git add -A && git commit -m "..."
 
-# 5. 发布
-DSH_HOME=/tmp/xx TZ=UTC npm publish
-git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z
-
-# 6. 同步安装副本并复跑
-cd C:\Users\Administrator\.dsh\plugins\dsh-agent-soul && git pull --ff-only && npm test
+# 5. 打包交付物（见 8.2）
 ```
 
-`prepack` 已经挂 `npm test`，但**别指望它**——发布前的本地验证要做在前面。
+**不要做的事**：`npm publish` / `git tag` / 改 `package.json` 的 `version` / 改 `CHANGELOG.md`。
+
+> 版本号、CHANGELOG、tag、npm、安装副本这五处的一致性由发布者统一处理。
+> 你改了版本号，合并时就要多解一次冲突，而冲突解法一旦错，发布的版本号就是错的那一个。
+
+### 8.2 交付物（四样，缺一样复核就会慢一半）
+
+| 交付物 | 内容 | 为什么需要 |
+|---|---|---|
+| **分支** | `fix/your-topic`（能 push 到远端最好；不能就给 diff） | 复核时我会直接合并 + 跑全量，比看 diff 可靠 |
+| **diff 文件** | `git diff main...fix/your-topic > xxx.diff`，并报「N 文件 / +A / −D」 | 快速对账：我合并后 `git diff --stat` 必须和你报的一致 |
+| **进度档案** | 每条修复一个编号：**症状 → 改法 → 证据** | 「已修」两个字在上一轮骗过人（#1） |
+| **测试证据** | 每条修复对应哪个测试、断言几条、**毒化后是否变红** | 这是唯一能证明「真修了」的东西 |
+
+**进度档案模板**（每条都这么写）：
+
+```md
+### #20 notes reconcile 按索引对位比较
+
+- 症状：笔记页反复显示「已变更」；顺序一变就误报
+- 位置：lib/notes.js:reconcile()
+- 改法：改按 slug 建 Map 比较
+- 测试：tests/xxx.test.js 第 3 节，5 条断言
+- REDGREEN：把比较改回索引对位 → 第 4、5 条断言变红；恢复 → 绿
+- 兼容性：老索引文件是否需要迁移？说明结论
+```
+
+### 8.3 复核会看什么（提前对齐，省一轮返工）
+
+1. **合并后**全量测试 + 契约 + lint 是否仍绿（不是你那棵树绿，是**合并进 main 之后**绿）；
+2. **`lib/client.js` 能不能重建**：我会跑 `node tools/build-client.mjs` 要求零 diff；
+   顺带检查 `d243fd7` 加的第三方署名注释没被覆盖；
+3. **有没有偷偷改既有测试**：`git diff main -- tests/` 里除了新增文件，其余改动要能解释；
+4. **契约基线是否走正规通道**：`SNAPSHOT_CHANGES.md` 里有没有带理由的记录；
+5. **逐条 REDGREEN 抽查**：我会挑 1–3 条自己毒化一遍，看是不是真红；
+6. **有没有顺手引入新依赖 / 硬编码路径 / 平台假设**。
+
+上一轮就是第 5 条抓出的问题：`#1` 的修复声称已修，测试也加了，
+但补的测试**修没修都是绿的**（前缀字节数让 UTF-8 切点正好落在字与字之间）。
+
+### 8.4 发布由谁做
+
+复核通过后，由委托方的常驻助手统一执行：
+
+```bash
+# 版本号 / CHANGELOG / tag / npm / 安装副本同步 —— 这五步只在一处做
+```
+
+所以你在交付文档里**只要说清「改了什么、为什么、怎么验」**，不需要替我考虑发版。
 
 ---
 
@@ -274,19 +356,23 @@ C:\Users\Administrator\.dsh\agents\soul.log     ← 第一手线索，永远先�
 
 ## 10. 交接边界（这些不要自作主张）
 
-1. **不要给鉴权加 trust-proxy 授权** —— 见 §5「明确不修」第一条。
-2. **不要手改 `tests/contract/*.json`** —— 走 `SOUL_UPDATE_SNAPSHOT`。
-3. **不要在读取路径写盘** —— `readCardQuietly` 就是为此而存在的：
+1. **不要发布** —— 不 `npm publish`、不打 tag、不改版本号、不改 `CHANGELOG.md`（见 §8）。
+2. **不要给鉴权加 trust-proxy 授权** —— 见 §5「明确不修」第一条。
+3. **不要手改 `tests/contract/*.json`** —— 走 `SOUL_UPDATE_SNAPSHOT`。
+4. **不要在读取路径写盘** —— `readCardQuietly` 就是为此而存在的：
    `loadCard` 会 `parkCorrupt`（把坏卡改名+置只读），读取路径**绝不能**用它。
-4. **不要动 `lib/client.js`**（构建产物）—— 改 `lib/client/*.js` 片段后重建。
-5. **不要给 `lib/index.js` 的注入段改顺序** —— 顺序决定提示词结构，改了要同步契约与文档。
-6. **不要在源码里写死盘符、用户名、IP** —— 测试与公开仓库都会带上。
+5. **不要动 `lib/client.js`**（构建产物）—— 改 `lib/client/*.js` 片段后重建。
+6. **不要给 `lib/index.js` 的注入段改顺序** —— 顺序决定提示词结构，改了要同步契约与文档。
+7. **不要在源码里写死盘符、用户名、IP** —— 测试与公开仓库都会带上。
 
 ---
 
 ## 11. 一句话给接手的人
 
 这个项目最大的风险不是「功能不够」，而是**「看起来绿了，其实没测到」**。
-`0.9.8` 里那条 UTF-8 bug 就是这么漏出去的：修复写了、测试也补了，但补的测试是假绿。
+`0.9.8` 里那条 UTF-8 bug 就是这么漏出去的：修复写了、测试也补了，但补的测试是假绿 ——
+而它正是上一轮外部交接时漏过来的。
 
 所以规矩只有一条：**改完先证明「不修会红」，再证明「修了会绿」。**
+
+至于发布：**你只管把证据备齐，发不发、什么时候发，由复核方定。**

@@ -33,8 +33,9 @@ const DEST = toIndex >= 0 && argv[toIndex + 1] ? resolve(argv[toIndex + 1]) : jo
 
 /** 同步的项：目录整份同步，文件单个同步。 */
 // assets 是心情那五张表情图（PNG），lib/api.js 直接从这里读出去给设置页
-const DIRS = ['lib', 'tests', 'docs', 'assets']
-const FILES = ['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE']
+// 2026-11-07：版权说明与许可原文必须随宿主安装副本一起走，否则安装版只有 MIT 文本。
+const DIRS = ['lib', 'tests', 'docs', 'assets', 'LICENSES']
+const FILES = ['package.json', 'cordis.patch.yml', 'README.md', 'LICENSE', 'THIRD-PARTY-NOTICES.md']
 
 /**
  * 原子复制：先落到同目录的 .tmp-<pid>-<uuid>，再 rename 覆盖。

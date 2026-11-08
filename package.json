@@ -30,7 +30,9 @@
     "cordis.patch.yml",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
+    "LICENSES"
   ],
   "scripts": {
     "prepack": "npm test",
@@ -113,5 +115,5 @@
     "url": "https://github.com/danshuyue/dsh-agent-soul/issues"
   },
   "homepage": "https://github.com/danshuyue/dsh-agent-soul#readme",
-  "license": "MIT"
+  "license": "SEE LICENSE IN LICENSE"
 }

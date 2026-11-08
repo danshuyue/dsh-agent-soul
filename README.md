@@ -1,5 +1,7 @@
 # dsh-agent-soul
 
+> **版权与来源｜本项目是派生作品，不是原创。** 心情引擎、五张表情图与部分设置页布局派生自 [Yuuyuko-uu/dsh-feiyu-mood](https://github.com/Yuuyuko-uu/dsh-feiyu-mood)；记忆机制（会淡忘的长期记忆、召回去重、注入预算）设计借鉴自 [Yuuyuko-uu/dsh-fish-memory](https://github.com/Yuuyuko-uu/dsh-fish-memory) —— 两者原作者同为 **Yuuyuko-uu**，均适用《Yuuyuko-uu 插件许可 1.2》；目的机制借鉴 [Mieksido/surfcore](https://github.com/Mieksido/surfcore)（MIT，© 2026 Derpyu520 and qq-bridge / QSH contributors）。**完整许可原文、逐项来源与改动清单见 [THIRD-PARTY-NOTICES.md](./THIRD-PARTY-NOTICES.md) 与 [LICENSES/](./LICENSES/)。**
+
 > 给 DSH 的 agent 一份**会忘事的记忆**、一套**会变的人格**、一份**会起伏的心情**，和一个**她自己写的笔记本**。
 
 它做六件事：
@@ -793,4 +795,19 @@ app.js                                                 外壳
 
 ## 许可
 
-MIT
+**本项目是派生作品，整体按《Yuuyuko-uu 插件许可 1.2》履约**（该许可第 6 条：
+公开衍生作品不得改用更宽松的许可）。`dsh-feiyu-mood` 与 `dsh-fish-memory` 两个
+原仓库的 LICENSE 是同一份逐字全文，共用
+[`LICENSES/Yuuyuko-uu-PLUGIN-1.2.txt`](./LICENSES/Yuuyuko-uu-PLUGIN-1.2.txt)。
+
+- 根 [`LICENSE`](./LICENSE) 里的 MIT 文本**只覆盖可与派生部分分离的自有代码**，
+  不得据此把本项目整体当作 MIT 项目再分发；`package.json` 的 `license` 字段
+  写的是 `SEE LICENSE IN LICENSE`，指向这份结构说明。
+- 目的机制借鉴的 SurfCore 仍由其版权人按 MIT 授权，版权行与完整许可文本见
+  [`LICENSES/MIT-THIRD-PARTY.txt`](./LICENSES/MIT-THIRD-PARTY.txt)。本声明不削弱
+  你从原作者处直接取得的任何权利。
+- 逐项来源、改了哪些部分、署名保留位置、以及不属于第三方版权来源的引用边界，
+  全部列在 [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md)。
+
+《Yuuyuko-uu 插件许可 1.2》允许安装、修改、商用；再分发时要求完整保留许可原文、
+在 README 第一屏注明原仓库与原作者、说明改动、不得声称原创、不得隐藏署名。

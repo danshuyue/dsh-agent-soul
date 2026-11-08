@@ -1,3 +1,19 @@
+许可结构说明（本段是说明，不是许可条款）
+========================================
+
+本项目是派生作品，包含来自 Yuuyuko-uu/dsh-feiyu-mood 与
+Yuuyuko-uu/dsh-fish-memory 的派生部分（两者共用同一份 1.2 许可原文）。
+按《Yuuyuko-uu 插件许可 1.2》第 6 条「公开的衍生作品必须继续使用本许可
+（或更严格的许可），不得改用更宽松的许可」，本项目作为公开衍生作品
+整体以该许可 1.2 为准；完整原文见 LICENSES/Yuuyuko-uu-PLUGIN-1.2.txt。
+
+下方 MIT License 仅适用于本项目可与上述派生部分分离的自有代码，
+不构成对本项目整体的 MIT 授权。SurfCore 的版权行与 MIT 许可全文见
+LICENSES/MIT-THIRD-PARTY.txt；逐项来源、改动清单与署名位置见
+THIRD-PARTY-NOTICES.md。
+
+========================================
+
 MIT License
 
 Copyright (c) 2026 danshuyue

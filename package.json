@@ -94,7 +94,7 @@
   },
   "engines": {
     "node": ">=22.19",
-    "dsh": ">=0.2.0-rc.1"
+    "dsh": ">=0.2.0-rc.1 || >=0.2.1-rc.2 || >=0.2.2-rc.1"
   },
   "author": "单树见月 <3472302240@qq.com>",
   "dsh": {
@@ -105,6 +105,14 @@
     "client": {
       "platform": "web",
       "inject": []
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.1+": "compatible",
+        "0.2.2-rc.1+": "unverified"
+      },
+      "verifiedOn": "0.2.1-rc.5",
+      "note": "0.2.2-rc.1 仅声明 engines 放行，尚未实机验证（阶段 0）；实测见阶段 1-4"
     }
   },
   "repository": {

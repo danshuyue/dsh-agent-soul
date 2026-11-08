@@ -46,3 +46,7 @@
 - 2026-11-07T06:06:34.033Z · exports.snapshot.json · R9/P2-10 新增模块 core/lru.js（trimMap / touchMap）：把 8 处「超限就整体 clear()」改成只淘汰最旧的，避免第 201 个会话出现时其余会话集体失忆。
 
 - 2026-11-07T06:47:59.737Z · exports.snapshot.json · R10/P2-15 令牌有效期与轮换：新增 TOKEN_TTL_MS、rotateApiToken、apiTokenAge；新增 POST /session/rotate 路由。
+
+- 2026-11-08T07:11:53.227Z · exports.snapshot.json · 新增 lib/core/session-groups.js：日记流水按工作区→会话分组
+
+- 2026-11-08T07:11:53.328Z · behavior-golden.json · 日记对话文本改为按工作区→会话分组（pickConversation 输出多两行标题），行为有意变更

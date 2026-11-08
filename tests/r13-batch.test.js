@@ -12,7 +12,7 @@
  *   #6  mood 缓存 key 全局化：写失败 settle 后其它 cwd 读到新值而不是旧值
  *   #30 无 id 会话游标按 agent 身份分键，不互吃扫描窗口
  */
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { EventEmitter } from 'node:events'
@@ -204,6 +204,44 @@ console.log('附加 · sanitizeLogText 基础行为（#9 的支撑函数）')
 // ---------------------------------------------------------------------------
 eq(sanitizeLogText('abc\n[api] 假的'), 'abc?[api] 假的', '换行被换成 ?，日志行拆不开')
 eq(sanitizeLogText('a'.repeat(300)).length, 200, '超长截到 200')
+
+// ---------------------------------------------------------------------------
+console.log('#1 · 只读头部不能把 UTF-8 汉字切坏（复核补丁）')
+// ---------------------------------------------------------------------------
+{
+  // 2026-11-08 复核发现：#1 原先按 400 字节直接 toString('utf8')，而 400 % 3 != 0，
+  // 中文正文的最后一个字必然被切开，预览末尾出现 U+FFFD（「�」）。
+  // 这里走真实 handler，拿真实 preview 断言。
+  const completion = await imp('diary/completion.js')
+  const diary = await imp('http/routes/diary.js')
+  const dateStr = completion.todayKey(Date.now())
+  const file = paths.diaryPublicPath(dateStr)
+  mkdirSync(dirname(file), { recursive: true })
+  // 关键：让 400 字节边界**正好切在汉字中间**。
+  // 纯中文正文：每字 3 字节，400 % 3 = 1 → 第 400 字节必是某个字的第一个字节。
+  // （第一版测试在前面加了「【公开】+ 日期」前缀，前缀 25 字节让 375 恰好整除 3，
+  //   边界落在字与字之间 —— 于是无论修没修都不会出现 U+FFFD，测试是假绿。）
+  writeFileSync(file, '这是一段中文正文用来测试截断边界'.repeat(40), 'utf8')
+
+  const res = { status: 0, body: '' }
+  await diary.handleGetDiaryList({}, {}, {
+    writeHead(code) { res.status = code },
+    end(chunk) { res.body += String(chunk) },
+    writableEnded: false
+  }, new URLSearchParams('days=1'), '/diary/list')
+
+  const parsed = JSON.parse(res.body)
+  const item = (parsed.list ?? []).find((row) => row.date === dateStr)
+  ok(item !== undefined, '列表里有今天这一条')
+  const preview = String(item?.preview ?? '')
+  ok(preview.length > 0, '预览非空')
+  ok(!preview.includes('\uFFFD'), '预览里没有替换字符（旧实现这里必然有）')
+  ok(preview.length >= 120, `预览取到了足够内容（${preview.length} 字）`)
+  // 读取上限：多读 3 字节只是为了补齐字符，不应明显变长
+  ok(Buffer.byteLength(preview, 'utf8') <= 403, `预览字节数没超上限（${Buffer.byteLength(preview, 'utf8')}）`)
+
+  rmSync(file, { force: true })
+}
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

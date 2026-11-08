@@ -36,7 +36,9 @@ const { ensureDirs } = await imp('paths.js')
 ensureDirs()
 const completion = await imp('diary/completion.js')
 const files = await imp('diary/files.js')
+// 2026-11-10 #26 拆分：shouldAskAgain 迁到 diary/deliver.js（import 路径调整，断言不变）
 const scheduler = await imp('diary/scheduler.js')
+const { shouldAskAgain } = await imp('diary/deliver.js')
 const paths = await imp('paths.js')
 
 const DATE = '2026-11-05'
@@ -82,20 +84,20 @@ console.log('D3 · 「文件在 = 她写好了」要加时间基线')
   const old = start + 2 * 3600_000
   setMtime(pub, old)
 
-  eq(scheduler.shouldAskAgain(pub, { since: 0 }), false,
+  eq(shouldAskAgain(pub, { since: 0 }), false,
     'since=0（老调用方）→ 仍然认为她已经写过（保持旧行为，不误打扰）')
-  eq(scheduler.shouldAskAgain(pub, { since: old + 60_000 }), true,
+  eq(shouldAskAgain(pub, { since: old + 60_000 }), true,
     '文件比本轮基线旧 → 要重新问她（旧实现这里是 false，于是永远补不出来）')
-  eq(scheduler.shouldAskAgain(pub, { since: old - 60_000 }), false,
+  eq(shouldAskAgain(pub, { since: old - 60_000 }), false,
     '文件比本轮基线新（她刚写完）→ 不再打扰')
-  eq(scheduler.shouldAskAgain(pub, { force: true, since: old + 60_000 }), true,
+  eq(shouldAskAgain(pub, { force: true, since: old + 60_000 }), true,
     'force（手动重写）→ 一定重新写')
-  eq(scheduler.shouldAskAgain(join(sandbox, 'never-existed.md'), { since: Date.now() }), true,
+  eq(shouldAskAgain(join(sandbox, 'never-existed.md'), { since: Date.now() }), true,
     '文件不存在 → 要写')
 
   // mtime 读不到（用目录冒充文件会让 stat 成功但…这里直接删掉它）
   rmSync(pub, { force: true })
-  eq(scheduler.shouldAskAgain(pub, { since: Date.now() }), true, '文件被删 → 要写')
+  eq(shouldAskAgain(pub, { since: Date.now() }), true, '文件被删 → 要写')
 }
 
 // ---------------------------------------------------------------------------

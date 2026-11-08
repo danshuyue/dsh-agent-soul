@@ -147,7 +147,8 @@
     "yesterdayKey"
   ],
   "diary/agent.js": [
-    "composeDiarySetup"
+    "composeDiarySetup",
+    "diaryAgent"
   ],
   "diary/completion.js": [
     "diaryDayBoundaries",
@@ -162,6 +163,10 @@
     "composePrivateMessage",
     "composePublicMessage",
     "diaryWindowOf"
+  ],
+  "diary/deliver.js": [
+    "askAgentToWrite",
+    "shouldAskAgain"
   ],
   "diary/feed.js": [
     "collectForDiary",
@@ -189,11 +194,9 @@
   "diary/scheduler.js": [
     "DIARY_TOTAL_BUDGET_MS",
     "__resetDiaryInFlightForTest",
-    "diaryAgent",
     "regenerateDiary",
     "runCatchUp",
     "runDiaryOnce",
-    "shouldAskAgain",
     "startDiaryTimer"
   ],
   "env.js": [

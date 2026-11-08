@@ -60,3 +60,5 @@
 - 2026-11-08T09:20:12.316Z · exports.snapshot.json · R15 #33 收敛：revOf 三处逐字重复（card.js/card-io.js/state/cards.js）收敛到 constants.js 单份导出；各模块行为不变
 
 - 2026-11-08T09:53:28.863Z · exports.snapshot.json · R16 #27 拆分：compose.js 按职责切四块 —— LLM 调用新建 diary/llm.js（summarizeConversations/composeDiaryText/describeFinishReason）、最近日记读取新建 diary/history.js（readRecentDiaries/digestDiaries）、会话 preset 修复移正到新 diary/agent.js（composeDiarySetup）；compose.js 只留 prompt 组装。函数体逐字未改，lib/diary.js 门面导出集合不变；新增 3 个模块进快照
+
+- 2026-11-08T10:59:30.516Z · exports.snapshot.json · R16 #26 拆分：scheduler.js 投递块迁新 diary/deliver.js（shouldAskAgain/askAgentToWrite 导出）；diaryAgent 并入 diary/agent.js。函数体逐字未改；lib/diary.js 门面导出名不变

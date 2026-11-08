@@ -32,7 +32,7 @@ const { ensureDirs, diaryPublicPath, diaryPrivatePath } = await imp('paths.js')
 ensureDirs()
 const diary = await imp('diary.js')
 // shouldAskAgain 现住 scheduler.js；#27/#26 拆分后迁往 diary/deliver.js（届时只改这一行 import）
-const { shouldAskAgain } = await imp('diary/scheduler.js')
+const { shouldAskAgain } = await imp('diary/deliver.js')
 const { runDiaryOnce } = diary
 const { writeDiaryFile } = await imp('diary/files.js')
 const store = await imp('store.js')

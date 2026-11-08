@@ -46,3 +46,5 @@
 - 2026-11-07T06:06:34.033Z · exports.snapshot.json · R9/P2-10 新增模块 core/lru.js（trimMap / touchMap）：把 8 处「超限就整体 clear()」改成只淘汰最旧的，避免第 201 个会话出现时其余会话集体失忆。
 
 - 2026-11-07T06:47:59.737Z · exports.snapshot.json · R10/P2-15 令牌有效期与轮换：新增 TOKEN_TTL_MS、rotateApiToken、apiTokenAge；新增 POST /session/rotate 路由。
+
+- 2026-11-08T07:43:05.198Z · exports.snapshot.json · R13 修复 KNOWN-ISSUES #9：env.js 新增 sanitizeLogText 导出（清洗 body 派生值进日志）；mood/digest、memory/card、extract 等仅内部实现无导出变化

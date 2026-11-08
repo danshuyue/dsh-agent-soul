@@ -194,6 +194,7 @@
     "note",
     "noteThrottled",
     "resetCardWriteFailureCount",
+    "sanitizeLogText",
     "serviceOf"
   ],
   "extract.js": [

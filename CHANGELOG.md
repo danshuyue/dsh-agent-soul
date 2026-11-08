@@ -7,6 +7,35 @@
 
 ---
 
+## 0.9.11 · 2026-11-10
+
+外部复检轮 **R16（重构轮）**，2 个提交 / 9 文件 / +583 −443。**对外行为零变化**：
+88 测试 / 11 契约 / lint / bundle 零 diff 全绿；复核时逐个函数比对，**10 个函数体在新旧位置逐字一致**。
+
+### 重构
+
+- **`diary/compose.js`（644 行四职责）按职责切四块**（#27）：
+  - `diary/llm.js` —— `describeFinishReason` / `summarizeConversations` / `composeDiaryText`（246 行）
+  - `diary/history.js` —— `readRecentDiaries` / `digestDiaries`（84 行）
+  - `diary/agent.js` —— `composeDiarySetup`（76 行，**移正到 HANDOFF 建议的位置**：它全是宿主服务交互，与拼 prompt 无关）
+  - `diary/compose.js` —— 只剩 prompt 组装：`diaryWindowOf` / `buildMoodBlocks` / `composePublicMessage` / `composePrivateMessage`（217 行）
+- 函数体由脚本按段落切分，**逐字未改**；事故注释随代码搬家；顺手删掉两段孤儿 docblock
+  （`diaryAgent` 的注释，函数本体 2026-11-06 已迁 `scheduler.js`，注释被遗留在 compose.js）。
+- `lib/diary.js` 门面导出名集合（29 个）前后**完全一致**，只是改由 `llm` / `history` / `compose` 三处分发。
+
+### 测试
+
+- 新增 `tests/r16-compose-feature.test.js`（11 断言），**先于拆分提交**且在旧代码上全绿。
+  它补上了此前**零直接覆盖**的两个函数：`buildMoodBlocks` 与 `composeDiarySetup`
+  （后者含 2026-11-05 那次事故修的行为：会话不活跃时从落盘日志回读 preset）。
+
+### 变更
+
+- 契约快照走正规通道：新增 `diary/agent.js`、`diary/history.js`、`diary/llm.js` 三个模块，
+  `compose.js` 移出 5 个导出；理由已记入 `SNAPSHOT_CHANGES.md`。
+
+---
+
 ## 0.9.10 · 2026-11-09
 
 外部复检轮 **R15（重构轮）**，3 个提交 / 13 文件 / +451 −137。**对外行为零变化**，

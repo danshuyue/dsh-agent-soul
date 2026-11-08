@@ -136,7 +136,9 @@ export function scanClientSymbols(clientDir, files) {
     const code = codeView(raw)
 
     // 顶层声明：拼接后处于 factory 顶层（4 空格缩进）
-    for (const m of code.matchAll(/^\s{4}(?:function\s+([A-Za-z_$][\w$]*)\s*\(|var\s+([A-Za-z_$][\w$]*)\s*=)/gm)) {
+    // 2026-11-09 KNOWN-ISSUES #32：放宽到 let/const（原来只认 var/function，顶层
+    // let/const 不进 topLevel，跨片段重名/漏接检查会静默失效）。
+    for (const m of code.matchAll(/^\s{4}(?:function\s+([A-Za-z_$][\w$]*)\s*\(|(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=)/gm)) {
       const name = m[1] ?? m[2]
       if (name) { declared.add(name); topLevel.add(name) }
     }

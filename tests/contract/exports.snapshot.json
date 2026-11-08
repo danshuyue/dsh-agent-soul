@@ -494,7 +494,8 @@
     "KIND_LABEL",
     "MEMORY_KINDS",
     "MEMORY_VERSION",
-    "normalizeKind"
+    "normalizeKind",
+    "revOf"
   ],
   "memory/mutation.js": [
     "addRecord",

@@ -26,7 +26,7 @@
  *
  * 运行：node tools/build-client.mjs    （也挂在 npm run sync / test 前面）
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { scanClientSymbols } from './client-symbols.mjs'
@@ -95,6 +95,19 @@ if (missing.length > 0) {
   process.exit(1)
 }
 
+// 2026-11-09 KNOWN-ISSUES #32：ORDER 之外的片段文件原来**静默丢弃** ——
+// 新建 xxx-tab.js 忘了登记进 ORDER，页签点开就是空白，没有任何告警。
+// 现在反向扫描：lib/client/ 下不在 ORDER 里的 .js 一律判构建失败。
+// 确实不该拼进 bundle 的文件（手工 fixture 之类）写进 CLIENT_IGNORE 豁免。
+const CLIENT_IGNORE = new Set([])
+const unregistered = readdirSync(clientDir)
+  .filter((name) => name.endsWith('.js') && !ORDER.includes(name) && !CLIENT_IGNORE.has(name))
+  .sort()
+if (unregistered.length > 0) {
+  console.error(`lib/client/ 下有未被 ORDER 登记的片段（不登记 = 拼不进 bundle = 页签静默空白）：\n  ${unregistered.map((f) => join(clientDir, f)).join('\n  ')}\n要么加进 ORDER，要么加进 CLIENT_IGNORE。`)
+  process.exit(1)
+}
+
 // 统一成 LF：片段在 Windows 检出是 CRLF，外壳是 LF，产物会变成混合行尾，
 // 跑一次 test 就把生成物标成 M（P2-18）。配合仓库根 .gitattributes 收口。
 const fragments = ORDER.map((file) => ({
@@ -115,7 +128,9 @@ for (const { file, names } of symbolReport.unknown) {
 // 行首出现 `import ` / `export ` 完全可能是给模型看的示例文本，正则会误判成
 // 顶层 ESM 声明，把一次合法构建直接判死。真正的 ESM 语法错误本来就逃不过
 // 下面的 new Function 解析，所以改成「只在解析真失败时」才归因提示。
-const DECL_RE = /^\s{4}(?:function\s+([A-Za-z_$][\w$]*)\s*\(|var\s+([A-Za-z_$][\w$]*)\s*=)/gm
+// 2026-11-09 KNOWN-ISSUES #32：原来只认 var/function，顶层 let/const 声明
+// 逃过重名检查（与 var 混用重名时会被 var 静默覆盖）。放宽到 let/const。
+const DECL_RE = /^\s{4}(?:function\s+([A-Za-z_$][\w$]*)\s*\(|(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=)/gm
 const seen = new Map()
 for (const { file, text } of fragments) {
   for (const match of text.matchAll(DECL_RE)) {

@@ -56,3 +56,5 @@
 - 2026-11-08T08:00:11.264Z · behavior-golden.json · 0.9.8 合并两处并行改动后的行为基线：① origin/main 的日记流水按工作区→会话分组（pickConversation 输出多了两行标题）；② R13 的 diary/compose.js 与 feed.js 修复。两者叠加使 behavior-golden 的哈希与长度变化，属有意变更。
 
 - 2026-11-08T08:00:11.361Z · exports.snapshot.json · 0.9.8 合并两处并行改动后的行为基线：① origin/main 的日记流水按工作区→会话分组（pickConversation 输出多了两行标题）；② R13 的 diary/compose.js 与 feed.js 修复。两者叠加使 behavior-golden 的哈希与长度变化，属有意变更。
+
+- 2026-11-08T09:20:12.316Z · exports.snapshot.json · R15 #33 收敛：revOf 三处逐字重复（card.js/card-io.js/state/cards.js）收敛到 constants.js 单份导出；各模块行为不变

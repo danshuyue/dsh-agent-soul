@@ -31,8 +31,10 @@ const eq = (a, e, n) => ok(JSON.stringify(a) === JSON.stringify(e), `${n}${JSON.
 const { ensureDirs } = await imp('paths.js')
 const { sessionsRoot } = await imp('core/registry.js')
 ensureDirs()
-const compose = await imp('diary/compose.js')
-const { composeDiarySetup, buildMoodBlocks, diaryWindowOf } = compose
+// 走稳定门面取 buildMoodBlocks；composeDiarySetup 是内部函数（不在门面上），
+// 从它拆分后的归宿模块取（#27：compose.js → diary/agent.js）。断言全部不变。
+const { buildMoodBlocks } = await imp('diary.js')
+const { composeDiarySetup } = await imp('diary/agent.js')
 const store = await imp('store.js')
 const moodStateMod = await imp('state/mood-state.js')
 const { moodState, saveMoodState } = moodStateMod

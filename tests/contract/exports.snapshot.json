@@ -146,6 +146,9 @@
     "writeDiaryFile",
     "yesterdayKey"
   ],
+  "diary/agent.js": [
+    "composeDiarySetup"
+  ],
   "diary/completion.js": [
     "diaryDayBoundaries",
     "diaryIsCompleteFor",
@@ -156,14 +159,9 @@
   ],
   "diary/compose.js": [
     "buildMoodBlocks",
-    "composeDiarySetup",
-    "composeDiaryText",
     "composePrivateMessage",
     "composePublicMessage",
-    "diaryWindowOf",
-    "digestDiaries",
-    "readRecentDiaries",
-    "summarizeConversations"
+    "diaryWindowOf"
   ],
   "diary/feed.js": [
     "collectForDiary",
@@ -179,6 +177,14 @@
     "maybePruneConversations",
     "waitForWrite",
     "writeDiaryFile"
+  ],
+  "diary/history.js": [
+    "digestDiaries",
+    "readRecentDiaries"
+  ],
+  "diary/llm.js": [
+    "composeDiaryText",
+    "summarizeConversations"
   ],
   "diary/scheduler.js": [
     "DIARY_TOTAL_BUDGET_MS",

@@ -7,6 +7,37 @@
 
 ---
 
+## 0.9.12 · 2026-11-10
+
+外部复检轮 **R17（最后一个大文件）**，2 个提交 / 8 文件 / +353 −241。**对外行为零变化**：
+89 测试 / 11 契约 / lint / bundle 零 diff 全绿；四个搬迁函数的**函数体在旧新位置逐字一致**。
+
+### 重构
+
+- **`diary/scheduler.js`（779 行五职责）拆分**（#26）：
+  - `diary/deliver.js`（新）—— 投递与回执判定：`shouldAskAgain` / `askAgentToWrite` / `mtimeMsOf`
+  - `diary/agent.js` —— `diaryAgent` 并入（与 R16 移进来的 `composeDiarySetup` 同属「会话获取 / 冷启动」）
+  - `diary/scheduler.js` —— 只留定时器 / 双层锁 / 主流程 / `regenerateDiary` / `runCatchUp`（779 → 551 行）
+- 函数体由脚本按段落切分，**逐字未改**；`askAgentToWrite` 因跨模块调用由私有改导出（已披露）。
+- `lib/diary.js` 门面导出名集合（29 个）不变，`diaryAgent` 改从 `agent.js` re-export。
+
+### 测试
+
+- 新增 `tests/r17-deliver-feature.test.js`（11 断言），**先于拆分提交**且在旧代码上全绿：
+  补上了 `shouldAskAgain` 这块**零直接覆盖**的判定矩阵（force / 不存在 / since=0 老行为 /
+  旧文件重写 / 新文件不重问 / mtime 被拨老），以及 `since` 语义的端到端验证 ——
+  那就是 P1-D3「看门狗每 30 分钟空转、日志却写『日记完成』」那条事故的判据。
+- 既有 `tests/r05-diary-state.test.js` 只改了 import 路径与调用点，**断言一字未动**（已逐行核对）。
+
+### 变更
+
+- 契约快照走正规通道：`deliver.js` 新增 `askAgentToWrite` / `shouldAskAgain`，
+  `agent.js` +`diaryAgent`，`scheduler.js` −2。理由已记入 `SNAPSHOT_CHANGES.md`
+  （其中「R16 #26」是交付方的笔误，发布时更正为 R17）。
+- **至此 `docs/KNOWN-ISSUES.md` 只剩 #23**（错误边界需宿主暴露 `React.Component`）。
+
+---
+
 ## 0.9.11 · 2026-11-10
 
 外部复检轮 **R16（重构轮）**，2 个提交 / 9 文件 / +583 −443。**对外行为零变化**：

@@ -1,0 +1,292 @@
+# 交接文档 · dsh-agent-soul `0.9.8`
+
+> 给接手的人（或 AI）。读完这一份就能开工，不需要翻聊天记录。
+> 写作时间：2026-11-08 · 对应提交 `b57d856` · tag `v0.9.8` · npm `latest = 0.9.8`
+
+---
+
+## 0. 一句话现状
+
+这是一个 DSH/Cordis 插件，给「糖糖」这个 AI 伴侣做**人格 + 记忆 + 心情 + 目的 + 笔记 + 日记**。
+`0.9.1`–`0.9.8` 八天里清掉了全部 14 条 P1 与大部分 P2，目前**没有会让插件罢工的已知缺陷**，
+剩 12 条「特定条件下才发作」的问题（见 §5）。
+
+| 指标 | 数值 |
+|---|---|
+| 测试 | **84** 个测试文件 / 0 失败；契约 **11** / 0 |
+| 代码量 | `lib/` 97 个文件 / ~19.9k 行 |
+| 运行时依赖 | **零**（`dependencies` 为空，刻意如此） |
+| 支持 | Node ≥ 22.19；CI 跑 Node 22 + 24 + Windows |
+| 发布物 | `lib assets docs tools cordis.patch.yml README CHANGELOG LICENSE THIRD-PARTY-NOTICES LICENSES` |
+
+---
+
+## 1. 代码从哪来
+
+```
+仓库：https://github.com/danshuyue/dsh-agent-soul
+分支：main（HEAD = b57d856）
+版本：0.9.8（package.json / npm / tag v0.9.8 三者一致）
+安装副本：C:\Users\Administrator\.dsh\plugins\dsh-agent-soul   ← 与 main 同步
+运行日志：C:\Users\Administrator\.dsh\agents\soul.log
+```
+
+**开工第一步：确认你拿到的是不是这个版本。**
+
+```bash
+git log --oneline -1        # 应为 b57d856 或其后代
+node -e "console.log(require('./package.json').version)"   # 应为 0.9.8
+git tag --list | tail -3    # 应含 v0.9.8
+```
+
+---
+
+## 2. 三条命令，先跑通再动手
+
+```bash
+export DSH_HOME=/tmp/soul-dev TZ=UTC   # Windows: $env:DSH_HOME="..."; $env:TZ="UTC"
+npm test          # 84 个文件，约 30–60 秒；期望「汇总：收集 84 / 执行 84 / 失败 0」
+npm run lint      # 期望「lint: 没有发现问题」
+npm run test:contracts   # 11 个，期望 0 失败
+```
+
+`DSH_HOME` **必须**指向临时目录 —— 否则测试会写真实用户数据。
+`npm test` 会先跑 `build-client.mjs` 再跑全量（构建失败会直接红）。
+
+---
+
+## 3. 结构地图（先看这 8 个文件，够你改 80% 的事）
+
+```
+lib/index.js             插件入口：注册工具/注入段/HTTP/定时器。改行为先看这里
+lib/env.js               note() 日志、appendLogLine、sanitizeLogText、健康计数
+lib/paths.js             所有落盘路径 + atomicWrite（所有写盘都走它）
+lib/store.js             门面：把各 state 模块的导出汇总（契约快照盯的就是它）
+lib/host/runtime/        宿主装配：turns（轮次/游标）inject（注入段）tick（每回合维护）
+lib/memory/              记忆卡：card-io（读写/损坏迁移）card（合并/ref/搜索）
+lib/diary/               日记：scheduler（定时/看门狗）compose（拼素材）feed（流水/选段）
+lib/http/                设置页 API：server（路由分发/鉴权）routes/* middleware
+lib/client/*.js          设置页前端片段 → 由 tools/build-client.mjs 拼成 lib/client.js
+```
+
+**注入顺序**（`ctx.systemPrompt.context({order})`，改顺序会影响提示词结构）：
+
+```
+230 心情 / 240 目的 / 245 笔记 / 250 记忆 / 260 人格 / 270 数据边界
+```
+
+---
+
+## 4. 工作纪律（红线，破了会出事）
+
+### ① 测试是门禁，不是装饰
+
+```bash
+npm test                 # 全量
+npm run test:contracts   # 契约：导出集合、路由分支、行为 golden、依赖图、探针
+```
+
+新增测试就放进 `tests/`，命名 `xxx.test.js`，`tools/run-tests.mjs` 会自动收集（**不需要登记**）。
+每个文件有 180 秒超时，可用 `--timeout=<秒>` 覆盖。
+
+**测试模板**（仓库里的自建 runner 都是这个形状）：
+
+```js
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const imp = (p) => import(pathToFileURL(join(root, 'lib', p)).href)
+const sandbox = mkdtempSync(join(tmpdir(), 'soul-x-'))
+process.env.DSH_HOME = sandbox
+mkdirSync(join(sandbox, 'agents'), { recursive: true })
+
+let passed = 0, failed = 0
+const ok = (c, n) => { if (c) { passed++; console.log(`  ✓ ${n}`) } else { failed++; console.error(`  ✗ ${n}`) } }
+
+// ... 断言 ...
+
+console.log(`\n结果：${passed} 过 / ${failed} 败`)
+rmSync(sandbox, { recursive: true, force: true })
+process.exit(failed === 0 ? 0 : 1)
+```
+
+### ② 修 bug 必须证明「不修就红」（REDGREEN）
+
+改完代码，**把源码退回旧写法**（改源文件，不要用运行时钩子），跑测试看它红；再恢复。
+只靠「改完绿了」不算验证 —— 可能你加的断言本来就是恒真的。
+
+> 真实教训：`0.9.8` 修 `/diary/list` 的 UTF-8 截断，第一版测试在前面加了 25 字节前缀，
+> 让 400 字节的切点正好落在字与字之间 —— **修没修都是绿的**。是毒化复核才发现的假绿。
+> 现在这条测试用纯中文正文（`400 % 3 = 1`），毒化后必红。
+
+### ③ 契约快照只能走正规通道
+
+`tests/contract/` 下的 `exports.snapshot.json`、`behavior-golden.json` 是**基线**，
+**不允许手改**。变了就：
+
+```bash
+SOUL_UPDATE_SNAPSHOT=1 SOUL_SNAPSHOT_REASON='中文说明为什么变' node tests/contract/exports.snapshot.test.js
+```
+
+理由会自动记进 `tests/contract/SNAPSHOT_CHANGES.md`。**没写理由的刷新等于作弊。**
+
+### ④ 前端改了片段必须重建
+
+```bash
+node tools/build-client.mjs     # lib/client/*.js → lib/client.js
+```
+
+CI 会 `git diff --exit-code -- lib/client.js tests/contract/`，忘了重建直接红。
+构建脚本会做语法/重名/符号表检查。
+
+### ⑤ 不许加运行时依赖
+
+`dependencies` 必须保持为空。这不是洁癖：插件要在用户机器上零安装跑起来。
+
+### ⑥ 零宽字符/混合宽度这类「看起来没事」的输入，要单独想
+
+`lib/core/prompt-guard.js` 负责把不可信数据包进边界标签。它处理：ASCII 标签、全角标签、
+混合宽度（`<`…`＞`）、零宽字符（`\u200B-\u200D`）、控制字符。
+
+### ⑦ lint 是硬门禁
+
+`npm run lint` → `tools/lint.mjs`，只查两条（都是真出过问题的）：
+未使用的 import、测试里的恒真断言 `ok(true, …)`。
+真需要「到这里没抛就算过」，行尾写 `// lint-allow:ok-true` 并说明理由。
+
+---
+
+## 5. 当前遗留（12 条，按「会不会踩到」排序）
+
+> 完整版在 [`docs/KNOWN-ISSUES.md`](KNOWN-ISSUES.md)，每条带代码位置、影响、建议改法、验证程度（A 实测 / B 读代码 / C 仅归档）。
+
+### 可能踩到的 3 条
+
+| # | 问题 | 位置 | 建议 |
+|---|---|---|---|
+| **20** | `notes` 的 `reconcile` 按**索引**对位比较，顺序一变就误报 `changed` | `lib/notes.js` | 改按 slug 建 Map 比较 |
+| **21** | `readNote` 用 `loadIndex` 而非 `reconcile` | `lib/notes.js` | 统一走 reconcile，否则可能返回已删条目 |
+| **23** | 「错误边界」接不住**渲染期**异常 → 白屏 | `lib/client/app.js` | 需要 `React.Component` 基类；本 bundle 作用域里没有，**做不了**，只能等宿主暴露 |
+| **15** | `redact` 把 16–19 位长数字当卡号抹掉且不可恢复 | `lib/extract.js` | 加前缀白名单或 Luhn 校验 |
+
+### 只是慢（1 条）
+
+| # | 问题 | 位置 |
+|---|---|---|
+| **2** | `/diary/sessions` 两层 `readdir` + 逐目录 `stat` | `lib/http/sessions.js` |
+
+### 纯代码质量（8 条）
+
+`#26` `diary/scheduler.js` 687 行五职责 · `#27` `diary/compose.js` 591 行 ·
+`#28` `segment-memory.js` 的 `text()` ~150 行上帝函数 · `#32` `build-client.mjs` 的 `ORDER` 硬编码 ·
+`#33` `revOf`/`pad2`/`dateKeyOf` 重复 + 测试断言工具复制 · `#34` 死代码（`summarizeConversations`、`force` 参数）·
+`#35` `docs/preview.html` 手抄 CSS
+
+### 明确「不修」的（想清楚了，别捡起来）
+
+| 项 | 为什么 |
+|---|---|
+| 反代下 `isLoopbackRequest()` 恒真 | 代理会把 `remoteAddress` 变成 `127.0.0.1`，插件侧没有可靠信号区分真实远端。`DSH_SOUL_TRUSTED_PROXY` **只用于分桶与日志，不参与授权** —— 把那两个可伪造的头当授权依据就是提权漏洞 |
+| 跨进程写卡不自动重写 | 已检测+告警；自动重写要给**每次**写盘加成本，而多进程并发是低频 |
+| P3 大部分 | 改了不解决任何用户问题 |
+
+### 仍「待确认」的 2 条（依赖宿主行为，仓库里验不了）
+
+| 项 | 兜法 |
+|---|---|
+| 压缩会话的 `snapshotEvents` 会不会抛 | 抛了也不推进锁：游标一定推进、整卡注入只宽限一次。**报「新会话没人格」先查这里** |
+| 反代 + 非默认端口下 `Origin`/`Host` 形态 | 已按规范化权威比较；被拒时 403 响应体带 `origin`/`host` 可对照 |
+
+---
+
+## 6. 建议的下一轮顺序
+
+1. **#20 + #21（notes）** —— 小改动、纯正确性、有明确症状（笔记页误报「已变更」）
+2. **#15（redact）** —— 需要一点产品判断：宁可少抹还是宁可误抹
+3. **#2（sessions 缓存）** —— 加 TTL 缓存，注意和 `/diary/list` 的口径一致
+4. **#26–#28（三个大文件）** —— **单独一轮**，先补特征测试再拆，别混在 bug 修复里
+
+`#23` 除非宿主文档里明确暴露了 `React.Component`，否则不要动。
+
+---
+
+## 7. 环境坑（Windows 为主，踩过才知道）
+
+| 坑 | 表现 | 解法 |
+|---|---|---|
+| PowerShell 5.1 的 `Get-Content`/`ConvertFrom-Json` | 中文变乱码、UTF-8 被当 GBK | 用 `write`/`read` 工具编辑文件；或 `[System.IO.File]::ReadAllText($p, [Text.Encoding]::UTF8)` |
+| `Set-Content -Encoding utf8` | 加 BOM，JSON 解析失败 | 用 `[System.IO.File]::WriteAllText($p, $s, (New-Object Text.UTF8Encoding($false)))` |
+| CRLF | 多行字符串 `match`/`replace` 锚点对不上 | 用 `\r?\n` 的正则，别用字面换行 |
+| 测试互相踩 `DSH_HOME` | 随机 ENOENT / 数据串味 | 每个测试文件 `mkdtempSync` 独立目录，结束时删 |
+| 时区 | 日期相关断言漂 | 跑测试固定 `TZ=UTC`；代码里**不要**再用 `toISOString().slice(0,10)` 当本地日期 |
+| `gh` 偶发 502 | 查不到 CI | 抓 `https://github.com/<repo>/actions` 页面看「completed successfully / failure」 |
+| npm publish 后立刻 `npm view` | 报 404 / notarget | 等待 2–4 分钟传播，别重复发布 |
+
+---
+
+## 8. 发布流程（照抄即可）
+
+```bash
+# 1. 改版本 + 写 CHANGELOG（格式：## 版本 · 日期，分类：新增/变更/修复/破坏性）
+# 2. 验证
+npm run lint && npm test && npm run test:contracts
+git diff --exit-code -- lib/client.js tests/contract/   # 必须干净
+
+# 3. 提交 + 推
+git add -A && git commit -m "..." && git push origin main
+# 4. CI 三个 job 全绿（test(22) / test(24) / windows）再看下一步
+
+# 5. 发布
+DSH_HOME=/tmp/xx TZ=UTC npm publish
+git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z
+
+# 6. 同步安装副本并复跑
+cd C:\Users\Administrator\.dsh\plugins\dsh-agent-soul && git pull --ff-only && npm test
+```
+
+`prepack` 已经挂 `npm test`，但**别指望它**——发布前的本地验证要做在前面。
+
+---
+
+## 9. 排查线索
+
+```
+C:\Users\Administrator\.dsh\agents\soul.log     ← 第一手线索，永远先看这里
+```
+
+日志是**本地时间**、带 `+08:00` 偏移。关键 tag：
+`[apply]` 启动/装配 · `[api]` 接口 · `[memory]` 记忆 · `[diary]` 日记 · `[mood]` 心情 ·
+`[tick]` 每回合维护 · `[extract]` 提取 · `[attest]` 装配证词。
+
+**几条「看着像 bug 其实不是」的日志**：
+
+| 日志 | 真相 |
+|---|---|
+| `[mood] 心情判定用的是自定义 provider「xxx」（不是 siliconflow）…` | 一次性告警，提醒「宿主不认识这个 provider 会让心情静默停摆」。看到它就往下翻一行确认判定是否成功 |
+| `[memory]「想起来了」被去重挡空，已把去重表收到 N 条重试` | 设计好的退化：全被挡掉时缩小去重表重试，不会注入空段 |
+| `[diary] 2026-11-xx 两篇都已写完，跳过` | 看门狗每 60 分钟检查一次，正常 |
+| `[api] 设置页接口已注册` 后紧跟 `[diary] 看门狗已启动` | 正常启动序列，共约 11 行 |
+
+---
+
+## 10. 交接边界（这些不要自作主张）
+
+1. **不要给鉴权加 trust-proxy 授权** —— 见 §5「明确不修」第一条。
+2. **不要手改 `tests/contract/*.json`** —— 走 `SOUL_UPDATE_SNAPSHOT`。
+3. **不要在读取路径写盘** —— `readCardQuietly` 就是为此而存在的：
+   `loadCard` 会 `parkCorrupt`（把坏卡改名+置只读），读取路径**绝不能**用它。
+4. **不要动 `lib/client.js`**（构建产物）—— 改 `lib/client/*.js` 片段后重建。
+5. **不要给 `lib/index.js` 的注入段改顺序** —— 顺序决定提示词结构，改了要同步契约与文档。
+6. **不要在源码里写死盘符、用户名、IP** —— 测试与公开仓库都会带上。
+
+---
+
+## 11. 一句话给接手的人
+
+这个项目最大的风险不是「功能不够」，而是**「看起来绿了，其实没测到」**。
+`0.9.8` 里那条 UTF-8 bug 就是这么漏出去的：修复写了、测试也补了，但补的测试是假绿。
+
+所以规矩只有一条：**改完先证明「不修会红」，再证明「修了会绿」。**

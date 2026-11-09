@@ -64,3 +64,5 @@
 - 2026-11-08T10:59:30.516Z · exports.snapshot.json · R17 #26 拆分：scheduler.js 投递块迁新 diary/deliver.js（shouldAskAgain/askAgentToWrite 导出）；diaryAgent 并入 diary/agent.js。函数体逐字未改；lib/diary.js 门面导出名不变（原记录误写 R16，发布时由复核方更正）
 
 - 2026-11-08T16:05:37.022Z · exports.snapshot.json · R18：任务 B/C 新增导出 —— middleware.js +LEGACY_CONFIG_KEYS（废弃键兼容表）、新模块 evidence.js（mark/markSnapshot/__resetEvidenceForTest/statuses/reportLine，开关生效证据）；cache.js saveConfig 落盘前剔除废弃键（无导出变化）
+
+- 2026-11-09T04:59:17.506Z · exports.snapshot.json · R19 功能增补：新增 core/situation.js（现实情境纯计算：时段/季节/节日/久未交互）与 diary/to-today.js（昨天想对今天说的话：解析/收窄/落盘）；paths 新增 diaryToTodayPath 与 situationHolidaysPath；routes 新增 POST /diary/to-today（改写/删掉）。均为新功能，无行为回退。

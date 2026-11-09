@@ -162,6 +162,8 @@ const EXPECTED_ROUTES = [
   'GET /diary/sessions', 'POST /diary/bind', 'POST /diary/unbind', 'POST /diary',
   'GET /notes/list', 'GET /notes/read', 'POST /notes/save', 'POST /notes/rename',
   'POST /notes/delete',
+  // 2026-11-09 R19 / ⑥：改写 / 删掉「昨天想对今天说的」
+  'POST /diary/to-today',
   // 2026-11-07 R10 / P2-15：手动轮换会话令牌（要带当前令牌）
   'POST /session/rotate'
 ].sort()

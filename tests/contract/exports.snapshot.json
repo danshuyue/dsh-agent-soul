@@ -111,6 +111,18 @@
     "stampOf",
     "workspaceLabel"
   ],
+  "core/situation.js": [
+    "DEFAULT_HOLIDAYS",
+    "__resetSituationCacheForTest",
+    "briefOf",
+    "dayKeyOf",
+    "daysSinceLastChat",
+    "diaryFactsOf",
+    "loadHolidays",
+    "periodOf",
+    "seasonOf",
+    "situationOf"
+  ],
   "diary-tool.js": [
     "checkDiaryDate",
     "registerDiaryTool"
@@ -198,6 +210,14 @@
     "runCatchUp",
     "runDiaryOnce",
     "startDiaryTimer"
+  ],
+  "diary/to-today.js": [
+    "TO_TODAY_MARK",
+    "clearToToday",
+    "normalizeToToday",
+    "parseToToday",
+    "readToToday",
+    "saveToToday"
   ],
   "env.js": [
     "LOG_FILE",
@@ -355,6 +375,7 @@
     "handleGetDiarySessions",
     "handlePostDiary",
     "handlePostDiaryBind",
+    "handlePostDiaryToToday",
     "handlePostDiaryUnbind"
   ],
   "http/routes/index.js": [
@@ -372,6 +393,7 @@
     "handlePostConfig",
     "handlePostDiary",
     "handlePostDiaryBind",
+    "handlePostDiaryToToday",
     "handlePostDiaryUnbind",
     "handlePostGoal",
     "handlePostMaintain",
@@ -679,6 +701,7 @@
     "diaryPrivatePath",
     "diaryPublicDir",
     "diaryPublicPath",
+    "diaryToTodayPath",
     "displayNameFor",
     "dshHome",
     "ensureDirs",
@@ -700,6 +723,7 @@
     "projectsDir",
     "readText",
     "shortHash",
+    "situationHolidaysPath",
     "slugFor"
   ],
   "persona.js": [

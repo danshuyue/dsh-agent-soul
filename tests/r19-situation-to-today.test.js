@@ -212,6 +212,20 @@ console.log('⑥ 端到端：她自己写私密日记 → 那一行被摘出来�
   ok(privateBody.includes('她写的私密日记'), '正文主体没被动过')
 }
 
+// ---------------------------------------------------------------------------
+console.log('界面：两个开关都在设置页里，卡片不是「有才显示」')
+// ---------------------------------------------------------------------------
+{
+  // 2026-11-09 修：第一版只在「今天有那句」时才渲染卡片，用户在设置页什么都没看到，
+  // 以为功能没做。这条断言把「卡片与开关必须在客户端产物里」钉住。
+  const { readFileSync } = await import('node:fs')
+  const bundle = readFileSync(join(root, 'lib/client.js'), 'utf8')
+  ok(bundle.includes('昨天想对今天说的'), '客户端产物里有这张卡片')
+  ok(bundle.includes('diaryToTodayEnabled'), '卡片旁边有开关')
+  ok(bundle.includes('situationEnabled'), '现实情境也有开关')
+  ok(bundle.includes('今天还没有这一句'), '没有这句时给的是轻说明，不是整块消失')
+}
+
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)
 rmSync(sandbox, { recursive: true, force: true })

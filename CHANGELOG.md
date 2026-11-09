@@ -7,6 +7,25 @@
 
 ---
 
+## 0.9.16 · 2026-11-09
+
+### 变更
+
+- **长列表自己滚**：日记「最近日记」、记忆记录、笔记列表、目的「惦记的事」四处
+  加 `max-height:min(46vh,420px) + overflow:auto`（跟心情页时间线 `.soul-tl` 同一个套路）。
+  条目一多时不再把整页撑长，下面的卡片不用划半天才看得到。
+  加 `overscroll-behavior:contain`：内层滚到底不把滚动传给外层，免得整页突然跳走。
+- 新增 `tools/sync-preview.mjs`：把 `styles.js` 的 CSS 一键同步进 `docs/preview.html`。
+  R15 的 `preview-css` 门禁能拦住「改了样式忘了同步」，但同步一直是手工的 —— 现在是一条命令。
+- 新增 `tests/ui-scroll.test.js`（10 断言）：断言样式规则存在（有界高度 / 可滚 / 不传滚动），
+  且四个片段真的挂上了 class —— 只加样式不挂 class 是最常见的「改了等于没改」。
+
+### 修复
+
+- `docs/preview.html` 的插件 CSS 与 `styles.js` 同步（否则 `preview-css` 契约红）。
+
+---
+
 ## 0.9.15 · 2026-11-10
 
 ### 修复

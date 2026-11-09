@@ -211,6 +211,13 @@
     "sanitizeLogText",
     "serviceOf"
   ],
+  "evidence.js": [
+    "__resetEvidenceForTest",
+    "mark",
+    "markSnapshot",
+    "reportLine",
+    "statuses"
+  ],
   "extract.js": [
     "autoMemoryRejectReason",
     "collectCandidates",
@@ -332,6 +339,7 @@
     "PICK_TIMEOUT_MS"
   ],
   "http/middleware.js": [
+    "LEGACY_CONFIG_KEYS",
     "NUMBER_RANGES",
     "isLoopbackRequest",
     "json",

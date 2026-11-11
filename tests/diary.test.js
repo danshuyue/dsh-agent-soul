@@ -380,7 +380,9 @@ console.log('触发消息（composeTriggerMessage）')
   ok(privMsg.includes('2026-10-29'), '私密消息包含日期')
   ok(privMsg.includes('真实、不设防'), '私密消息带私密语气')
   ok(privMsg.includes('soul_diary') && privMsg.includes('kind=private'), '私密消息指明用 soul_diary 写（kind=private）')
-  ok(privMsg.includes('接着写私密那篇'), '私密消息承接公开那篇（写完再写下一篇）')
+  // 2026-11-11 提示词改成人话：旧原话「接着写私密那篇」变成「接着写 <日期> 的私密日记」，
+  // 所以这里钉意图（承接 + 私密），不钉原话
+  ok(privMsg.includes('接着写') && privMsg.includes('私密日记'), '私密消息承接公开那篇（写完再写下一篇）')
 }
 
 // 公开那条消息里绝不能出现私密内容 —— 这是拆成两条投递的全部意义

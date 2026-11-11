@@ -36,7 +36,7 @@ test('续写（公开是她刚在本会话写的）：不复述摘要与连续�
   })
   assert.ok(!msg.includes(summary), '不该再带对话摘要')
   assert.ok(!msg.includes('12 点前睡'), '不该再带连续线')
-  assert.ok(msg.includes('都在你上面那条消息里'), '应有一句「不再重复」的说明')
+  assert.ok(msg.includes('这里不再重复'), '应有一句「不再重复」的说明')
   assert.ok(msg.includes('还在上文'), '应指出公开那篇在上文')
 })
 
@@ -58,7 +58,9 @@ test('续写时正文规范没丢：仍要求用 soul_diary 写 kind=private', (
   })
   assert.ok(msg.includes('soul_diary'))
   assert.ok(msg.includes('kind=private'))
-  assert.ok(msg.includes('接着写私密那篇'))
+  // 2026-11-11 提示词改成人话后，旧的「接着写私密那篇」不再出现。
+  // 这里钉的是**意图**：她得知道自己在写第二篇、用哪个工具、什么 kind —— 而不是某句原话。
+  assert.ok(msg.includes('action=write') && msg.includes('kind=private'), '仍指明工具与 kind')
 })
 
 test('公开不是她写的（兜底生成）：一律不贴全文，只说明一声', () => {
@@ -70,7 +72,7 @@ test('公开不是她写的（兜底生成）：一律不贴全文，只说明�
   assert.ok(!msg.includes(summary), '摘要仍不该重复')
   assert.ok(!msg.includes('还在上文'), '不能声称正文在上文（兜底那篇她没写过）')
   assert.ok(msg.includes('正文不在上文'), '要说明那篇她没见过，别让她去找')
-  assert.ok(msg.includes('不用去对齐它'), '给她自主：按自己的感受写')
+  assert.ok(msg.includes('不用照着它的说法写'), '给她自主：按自己的感受写')
 })
 
 let failed = 0

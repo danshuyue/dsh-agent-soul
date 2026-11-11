@@ -310,6 +310,15 @@
     "noteMissingOwner",
     "queueRefine"
   ],
+  "host/runtime/segment-cache.js": [
+    "SEGMENT_CACHE_MAX_ENTRIES",
+    "__resetSegmentCacheForTest",
+    "__segmentCacheStatsForTest",
+    "fileSignature",
+    "invalidateAll",
+    "invalidateSegment",
+    "renderCached"
+  ],
   "host/runtime/segment-data-policy.js": [
     "registerDataPolicySegment"
   ],

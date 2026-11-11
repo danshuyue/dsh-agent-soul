@@ -45,16 +45,25 @@ console.log('P2-16 · 限流按令牌分桶，不按同一个 remoteAddress')
 // ---------------------------------------------------------------------------
 {
   token.__resetApiTokenForTest()
-  // 两个不同令牌（都属于"远程"，remoteAddress 相同 → 旧实现会共享一个桶）
+  // 2026-11-10 R20-A5（审查 H2）：无效令牌不再各自为桶 —— 原 P2-16 的
+  // 「随机令牌各有一个新桶」正是 H2 要修的洞（限流对随机令牌完全失效）。
+  // 现在无效/伪造令牌一律落到 peer 桶：A 打满后同源的 B 也被限流。
   const a = mkReq({ 'x-soul-token': 'token-aaaaaaaaaaaaaaaa' }, '127.0.0.1')
   const b = mkReq({ 'x-soul-token': 'token-bbbbbbbbbbbbbbbb' }, '127.0.0.1')
-
-  // session 桶容量 20：一个令牌打满之后，另一个令牌必须还能领
   let allowedA = 0
   for (let i = 0; i < 30; i += 1) if (token.checkSessionRateLimit(a)) allowedA += 1
-  ok(allowedA > 0 && allowedA <= 20, `令牌 A 用掉了 ${allowedA} 次（桶容量 20）`)
-  eq(token.checkSessionRateLimit(a), false, '令牌 A 打满后被限流')
-  eq(token.checkSessionRateLimit(b), true, '令牌 B 不受影响（旧实现这里会是 false：共享同一个桶）')
+  ok(allowedA > 0 && allowedA <= 20, `无效令牌 A 用掉了 ${allowedA} 次（peer 桶容量 20）`)
+  eq(token.checkSessionRateLimit(a), false, 'A 打满后被限流')
+  eq(token.checkSessionRateLimit(b), false, '无效令牌 B 共享 peer 桶（H2 修复：不再各自开新桶绕过限流）')
+
+  // 有效令牌仍然按令牌分桶（真持有者互不影响）
+  token.__resetApiTokenForTest()
+  const issued = token.issueSessionToken(mkReq({}, '127.0.0.1'))
+  eq(issued.ok, true, '前提：能领到有效令牌')
+  const validA = mkReq({ 'x-soul-token': issued.token }, '127.0.0.1')
+  let allowedValid = 0
+  for (let i = 0; i < 25; i += 1) if (token.checkSessionRateLimit(validA)) allowedValid += 1
+  ok(allowedValid > 0 && allowedValid <= 20, `有效令牌的桶独立计量（${allowedValid} 次）`)
 
   // 没有令牌的请求仍然按来源 IP 分桶
   token.__resetApiTokenForTest()

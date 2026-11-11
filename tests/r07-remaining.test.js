@@ -147,7 +147,9 @@ console.log('D5 · 写后检测不误报（检测逻辑本身）')
   memory.addRecord(card, { text: 'D5 检测用的一条记忆', importance: 40 }, store.loadConfig(), Date.now())
   const saved = store.saveGlobalCard(card)
   eq(saved.ok, true, '正常写入成功（没有并发时不应该报警）')
-  ok(memory.revOf === undefined || true, '（revOf 是内部函数，这里只验外部行为）')
+  // 2026-11-10 R20-C（审查 H3②）：原来是 `A || true` 恒真式。真实断言：
+  // revOf 收敛到 constants.js 之后不应出现在公共门面上（外部走 saveCard 的返回值）。
+  ok(typeof memory.revOf === 'undefined', 'revOf 不在公共门面上（内部函数，外部用 saveCard 的返回值）')
   const after = store.globalCard()
   ok(after.records.some((r) => String(r.text).includes('D5 检测')), '写盘后能读到')
 }

@@ -26,15 +26,24 @@
  *
  * 运行：node tools/build-client.mjs    （也挂在 npm run sync / test 前面）
  */
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { scanClientSymbols } from './client-symbols.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const projectRoot = join(here, '..')
-const clientDir = join(projectRoot, 'lib', 'client')
-const outFile = join(projectRoot, 'lib', 'client.js')
+// 2026-11-10 R20-A6（审查 H8）：支持 --client-dir / --out 覆盖 —— 供测试在
+// **临时副本目录**里改片段再构建（不碰仓库源码树）。s2-hardening 原来直接改写
+// 仓库里的 overview-tab.js 再靠 finally 还原，而 run-tests.mjs 的超时是 SIGKILL，
+// finally 不会执行，坏片段会残留在源码树里。
+const argOf = (name) => {
+  const prefix = `--${name}=`
+  const arg = process.argv.find((a) => a.startsWith(prefix))
+  return arg === undefined ? null : arg.slice(prefix.length)
+}
+const clientDir = argOf('client-dir') ?? join(projectRoot, 'lib', 'client')
+const outFile = argOf('out') ?? join(projectRoot, 'lib', 'client.js')
 
 // 拼接顺序 = 依赖顺序。改了顺序要同步更新这个数组。
 const ORDER = [
@@ -162,6 +171,17 @@ if (problems.length > 0) {
 if (existsSync(outFile) && readFileSync(outFile, 'utf8') === bundle) {
   console.log(`产物无变化，跳过写盘（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名/符号表检查通过）`)
 } else {
-  writeFileSync(outFile, bundle, 'utf8')
-  console.log(`已拼接 ${outFile}（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名/符号表检查通过）`)
+  // 2026-11-10 R20-A6（审查 H8）：改 tmp + rename 原子落盘。
+  // tools/sync.mjs 文件头记载的线上事故正是「复制 bundle 时宿主读到半截文件，
+  // 整个应用起不来」—— 同步侧早已改 tmp+rename，构建侧一直是裸 writeFileSync，
+  // 中断（CI 超时 SIGKILL / 断电）会留下半截产物，重演「1 entry did not activate」。
+  const tmpFile = `${outFile}.tmp-${process.pid}-${Date.now()}`
+  try {
+    writeFileSync(tmpFile, bundle, 'utf8')
+    renameSync(tmpFile, outFile)
+    console.log(`已拼接 ${outFile}（${ORDER.length} 个片段，${bundle.split('\n').length} 行，语法/重名/符号表检查通过）`)
+  } catch (error) {
+    try { rmSync(tmpFile, { force: true }) } catch { /* 清理失败就算 */ }
+    throw error
+  }
 }

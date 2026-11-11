@@ -152,11 +152,13 @@ console.log('旧配置迁移：')
   store.resetCaches()
   eq(store.loadConfig().ownerName, '', '显式空串不被迁移覆盖')
 
-  // 3e. 旧配置里连旧键都没有 → 仍然给旧版默认值「树树」（升级用户不该突然失忆）
+  // 3e. 旧配置里连旧键都没有 → 兜底空串（2026-11-10 R20-B 审查 H4：不再代填作者
+  // 昵称「树树」—— 把作者昵称写进陌生用户的提示词还静默改他的配置文件是硬伤；
+  // moodOwnerName 的真实迁移（3b）不受影响）
   writeFileSync(file, JSON.stringify({ moodEnabled: true }, null, 2), 'utf8')
   store.resetCaches()
-  eq(store.loadConfig().ownerName, '树树', '旧配置缺旧键时回落旧版默认值')
-  eq(JSON.parse(readFileSync(file, 'utf8')).ownerName, '树树', '同样写回文件')
+  eq(store.loadConfig().ownerName, '', '旧配置缺旧键时兜底空串（不代填任何昵称）')
+  eq(JSON.parse(readFileSync(file, 'utf8')).ownerName, '', '同样写回文件')
 
   // 3f. JSON 坏了不猜、也不写回（写回会把整份配置抹掉）
   writeFileSync(file, '{ 这不是 JSON', 'utf8')

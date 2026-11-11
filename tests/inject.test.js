@@ -62,7 +62,8 @@ console.log('配置默认值（2026-10-30）：')
   eq(normalizeConfig({ memoryRecall: false }).memoryRecall, false, 'memoryRecall 能关')
   eq(normalizeConfig({ memoryRecall: 'yes' }).memoryRecall, false, '非 true 的布尔值一律归 false（不吃字符串）')
   eq(normalizeConfig({ memoryRecallTopK: 0 }).memoryRecallTopK, 1, 'topK 下限 1')
-  eq(normalizeConfig({ memoryRecallTopK: 999 }).memoryRecallTopK, 50, 'topK 上限 50')
+  // 2026-11-10 R20-B/M4：区间与 middleware 的 NUMBER_RANGES [1,20] 统一（原来这里 1~50，两处夹取不一致）
+  eq(normalizeConfig({ memoryRecallTopK: 999 }).memoryRecallTopK, 20, 'topK 上限 20（与 NUMBER_RANGES 统一）')
   eq(store.DEFAULT_CONFIG.injectMaxChars, DEFAULTS.injectMaxChars, '预算默认值只有一处（store 引用 memory.DEFAULTS）')
 }
 

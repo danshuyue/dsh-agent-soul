@@ -66,3 +66,5 @@
 - 2026-11-08T16:05:37.022Z · exports.snapshot.json · R18：任务 B/C 新增导出 —— middleware.js +LEGACY_CONFIG_KEYS（废弃键兼容表）、新模块 evidence.js（mark/markSnapshot/__resetEvidenceForTest/statuses/reportLine，开关生效证据）；cache.js saveConfig 落盘前剔除废弃键（无导出变化）
 
 - 2026-11-09T04:59:17.506Z · exports.snapshot.json · R19 功能增补：新增 core/situation.js（现实情境纯计算：时段/季节/节日/久未交互）与 diary/to-today.js（昨天想对今天说的话：解析/收窄/落盘）；paths 新增 diaryToTodayPath 与 situationHolidaysPath；routes 新增 POST /diary/to-today（改写/删掉）。均为新功能，无行为回退。
+
+- 2026-11-11T05:02:57.640Z · behavior-golden.json · 日记提示词给历史日记加隔离措辞：11-04 只发生过一次的「删了第二个」被后续几天的日记反复当成当天的事重写，11-10 甚至累加成「第四天」。历史日记块必须标明是过去的事，不能让模型拿它计数。

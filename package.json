@@ -35,12 +35,12 @@
     "LICENSES"
   ],
   "scripts": {
-    "prepack": "npm test",
+    "prepack": "npm run lint && npm test",
     "build:client": "node tools/build-client.mjs",
     "sync:host": "node tools/build-client.mjs && node tools/sync.mjs",
     "test": "node tools/build-client.mjs && node tools/run-tests.mjs",
     "lint": "node tools/lint.mjs",
-    "test:contracts": "node tools/run-tests.mjs --only=tests/contract/",
+    "test:contracts": "node tools/build-client.mjs && node tools/run-tests.mjs --only=tests/contract/",
     "test:s1": "node tests/s1-hotfix.test.js",
     "test:s2": "node tests/s2-hardening.test.js",
     "test:llm-timeout": "node tests/llm-stream-timeout.test.js",

@@ -236,23 +236,29 @@ console.log('\n④ sync --dry 只读')
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n⑤ 构建门禁：坏片段不能产出 bundle')
+console.log('\n⑤ 构建门禁：坏片段不能产出 bundle（在临时副本目录里做，不碰仓库源码树）')
+// 2026-11-10 R20-A6（审查 H8）：原来直接改写仓库里的 overview-tab.js 再靠 finally
+// 还原 —— run-tests.mjs 的超时是 SIGKILL，finally 不会执行，坏片段会残留。
+// 现在把 lib/client 拷进临时目录，用 build-client 的 --client-dir/--out 指过去，
+// 源码树全程零接触（SIGKILL 也不怕）。
 {
-  const frag = join(root, 'lib', 'client', 'overview-tab.js')
-  const outFile = join(root, 'lib', 'client.js')
+  const tmpClient = mkdtempSync(join(tmpdir(), 's2-frag-'))
+  const srcClient = join(root, 'lib', 'client')
+  for (const name of readdirSync(srcClient)) {
+    if (name.endsWith('.js')) writeFileSync(join(tmpClient, name), readFileSync(join(srcClient, name), 'utf8'), 'utf8')
+  }
+  const tmpOut = join(tmpClient, '..', 'client.js')
+  const frag = join(tmpClient, 'overview-tab.js')
   const original = readFileSync(frag, 'utf8')
-  const before = readFileSync(outFile, 'utf8')
   try {
     writeFileSync(frag, `${original}\n    function __s2_broken( {\n`, 'utf8')
-    const build = spawnSync(process.execPath, ['tools/build-client.mjs'], { cwd: root, encoding: 'utf8' })
+    const build = spawnSync(process.execPath, ['tools/build-client.mjs', `--client-dir=${tmpClient}`, `--out=${tmpOut}`], { cwd: root, encoding: 'utf8' })
     ok(build.status !== 0, '片段语法错误 → 构建非零退出（修前是 0）')
     ok(String(build.stderr).includes('语法错误'), '失败原因说清楚了')
-    eq(readFileSync(outFile, 'utf8'), before, '失败时产物一个字节都没写')
+    eq(existsSync(tmpOut), false, '失败时临时产物根本没写出来（原子写连 tmp 都清了）')
   } finally {
-    writeFileSync(frag, original, 'utf8')
-    spawnSync(process.execPath, ['tools/build-client.mjs'], { cwd: root, encoding: 'utf8' })
+    rmSync(tmpClient, { recursive: true, force: true })
   }
-  eq(readFileSync(frag, 'utf8'), original, '片段已完整还原')
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +324,9 @@ console.log('\n⑥ 宿主耦合与杂项（P0 起改成行为断言，不再读�
     await apiMod.pickFolder({ spawnImpl: () => busyChild, timeoutMs: 5000 })
   } catch (error) { mutexMessage = String(error?.message ?? error) }
   ok(mutexMessage.includes('已有文件夹选择对话框在进行中'), '/pick 并发互斥生效')
-  busyChild.emit('exit', 0)
+  // 2026-11-10 R20-D（审查 M12）：pickFolder 改听 close（stdio 冲刷完毕），
+  // 测试事件同步换成 close。exit 在 stdio 关闭前就可能触发，正是那次要修的错。
+  busyChild.emit('close', 0)
   await first
 
   // ⑥ moodDigest：moments 非空但 mood 全 NaN 时不能产出 NaN/Infinity

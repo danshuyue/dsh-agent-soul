@@ -451,7 +451,6 @@ console.log('清理：')
     }
   }
   ok(disposeError === null, `disposer 调用没有抛错${disposeError ? `（${disposeError.message}）` : ''}`)
-  rmSync(sandbox, { recursive: true, force: true })
 }
 
 console.log('\n全局：没有漏导入（2026-11-04）：')
@@ -460,10 +459,17 @@ console.log('\n全局：没有漏导入（2026-11-04）：')
   // 这种错语法检查发现不了，单测也测不到（除非覆盖调用点）。
   // 这里把整个 apply + text() 跑下来的日志翻一遍：任何 `x is not defined`
   // 都说明某条链上有东西在静默失败。
+  //
+  // 2026-11-10 R20-C（审查 H3⑤）：这一节原来**永远绿** —— 前一个块先 rmSync
+  // 删掉整个临时目录，这里才来读 soul.log：existsSync 恒为 false、logText 恒为
+  // 空串，这道专门防「ReferenceError 被 catch 吞掉」的网从来没拦过任何东西
+  // （H1 就这么漏的）。现在先读日志、断言完再删目录。
   const logFile = join(sandbox, 'agents', 'soul.log')
   const logText = existsSync(logFile) ? readFileSync(logFile, 'utf8') : ''
   const undefinedHits = logText.split('\n').filter((line) => /is not defined|is not a function/.test(line))
+  ok(logText !== '', '日志文件确实读到了（修前恒为空串，等于没查）')
   eq(undefinedHits.length, 0, `日志里没有「未定义/不是函数」类错误${undefinedHits.length > 0 ? `：${undefinedHits[0].slice(0, 120)}` : ''}`)
+  rmSync(sandbox, { recursive: true, force: true })
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

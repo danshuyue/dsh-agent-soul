@@ -143,7 +143,9 @@ console.log('C · 开关证据：inert 原因写人话，0 次 ≠ N/A')
   __resetEvidenceForTest()
   const line = reportLine({ enabled: true, moodEnabled: false, moodToneInject: true, memoryEnabled: true, notesEnabled: true, memoryRefine: false }, { memoryRecords: 5, notesCount: 2 })
   ok(line.startsWith('开关证据｜'), 'C5 行以「开关证据｜」开头')
-  ok(line.includes('生效：') && line.includes('记忆(5 条)✓') === false || true, 'C5 行含生效段')
+  // 2026-11-10 R20-C（审查 H3②）：这行原来是 `A && B === false || true` ——
+  // 优先级让它恒为真，什么都没验。现在断言真实内容。
+  ok(line.includes('记忆(5 条)✓') && line.includes('笔记(2 篇)✓'), 'C5 行含生效段（记忆 5 条 / 笔记 2 篇）')
   ok(line.includes('未生效：') && line.includes('心情语气✗(心情关了'), `C5 未生效段带人话原因`)
   ok(line.includes('提炼✗(提炼关了'), 'C5 提炼关了也在未生效段')
 }

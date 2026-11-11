@@ -17,12 +17,16 @@ const thread = '- 答应过：12 点前睡'
 const cases = []
 const test = (name, run) => cases.push({ name, run })
 
-test('默认（没有续写标记）：照旧带全部语料', () => {
+test('默认（没有续写标记）：带公开历史，但不带私密历史', () => {
   const msg = composePrivateMessage({}, '2026-11-05', summary, recent, mood, thread)
   assert.ok(msg.includes(summary), '应带对话摘要')
   assert.ok(msg.includes('12 点前睡'), '应带连续线')
   assert.ok(msg.includes(mood), '应带情绪记录')
-  assert.ok(msg.includes('全部历史'), '应带全部历史')
+  // 2026-11-11 改：私密历史不再进提示词。
+  // 私密篇会自我喂养 —— 11-04 只发生过一次的「删了第二个」被后续几天的私密
+  // 反复写进日记、最后累加成「第四天」。公开篇够当「前几天大概是什么事」的参考。
+  assert.ok(!msg.includes('全部历史：公开那段 + 私密那段'), '不带私密历史（防自我喂养）')
+  assert.ok(msg.includes('公开历史：昨天写了一点点'), '公开历史照旧带')
 })
 
 test('续写（公开是她刚在本会话写的）：不复述摘要与连续线', () => {

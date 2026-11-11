@@ -183,7 +183,7 @@ describe('composeDiaryText', () => {
     assert.doesNotMatch(captured, /私密的旧日记/)
   })
 
-  test('私密篇的提示词里包含全部历史', async () => {
+  test('私密篇的提示词只带公开历史，不带私密历史', async () => {
     let captured = ''
     const llm = {
       async *stream(opts) {
@@ -196,6 +196,9 @@ describe('composeDiaryText', () => {
       ...baseCtx,
       recentDiaries: { public: '公开的旧日记', all: '公开的旧日记\n私密的旧日记' }
     })
-    assert.match(captured, /私密的旧日记/)
+    // 2026-11-11 改：私密历史不再进提示词（私密篇自我喂养，
+    // 11-04 只发生过一次的事被反复写成「第几天」）。公开历史照旧带。
+    assert.match(captured, /公开的旧日记/)
+    assert.doesNotMatch(captured, /私密的旧日记/)
   })
 })

@@ -395,8 +395,10 @@ console.log('触发消息（composeTriggerMessage）')
   ok(!pubMsg.includes('只该出现在公开段'), '公开消息不再投前几天的公开日记（2026-11-08）')
   ok(pubMsg.includes('action=look'), '公开消息给一个自己翻的出口')
   ok(!pubMsg.includes('只该出现在私密段'), '公开消息**不**带私密日记')
-  ok(privMsg.includes('只该出现在私密段'), '私密消息带私密日记')
-  ok(privMsg.includes('只该出现在公开段'), '私密消息带全部（公开也算）')
+  // 2026-11-11 改：私密消息也不再带私密历史 —— 私密篇会自我喂养，
+  // 11-04 只发生过一次的「删了第二个」被反复写进后续日记、最后累加成「第四天」。
+  ok(!privMsg.includes('只该出现在私密段'), '私密消息也不带私密日记（防自我喂养）')
+  ok(privMsg.includes('只该出现在公开段'), '私密消息带公开历史')
 }
 
 // 空语气：不出现「语气：」行

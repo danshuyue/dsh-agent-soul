@@ -311,6 +311,7 @@
     "queueRefine"
   ],
   "host/runtime/segment-cache.js": [
+    "SEGMENT_CACHE_MAX_AGE_MS",
     "SEGMENT_CACHE_MAX_ENTRIES",
     "__resetSegmentCacheForTest",
     "__segmentCacheStatsForTest",
@@ -339,7 +340,6 @@
   ],
   "host/runtime/state.js": [
     "maintainClock",
-    "personaInjectAtBySession",
     "recallSeenBySession",
     "stickyRecallBySession",
     "turnCursorBySession"
@@ -354,7 +354,6 @@
     "jaccardOf",
     "memoPerStep",
     "noteStickyReuse",
-    "shouldInjectPersona",
     "stickyStateFor"
   ],
   "http/constants.js": [

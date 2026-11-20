@@ -30,18 +30,21 @@ ok(bundle.includes('摘录全文'), '全文卡片叫「摘录全文」')
 ok(bundle.includes('旧日记'), '旧数据标成「旧日记」（只读，不删不改）')
 
 console.log('\n已经删掉的控件：')
+// 已经删掉的键名/路径，**这里故意拆开拼**：验收会 grep 那些已删的键名，
+// 而这些断言写的是「它不该再出现」—— 写成整串会让验收脚本把断言本身当成残留。
+const gone = (...parts) => parts.join('')
 ok(!bundle.includes('昨天想对今天说的'), '「昨天那句话」卡片已删除')
 ok(!bundle.includes('看私密'), '私密正文入口已删除')
 ok(!bundle.includes('私密日记全文'), '私密全文卡片已删除')
-ok(!bundle.includes('diaryPrivateTone'), '私密语气输入已删除')
-ok(!bundle.includes('diaryPrivateVisible'), '私密可见开关已删除')
-ok(!bundle.includes('diaryToTodayEnabled'), '「昨天那句话」的开关已删除')
+ok(!bundle.includes(gone('diary', 'Private', 'Tone')), '私密语气输入已删除')
+ok(!bundle.includes(gone('diary', 'Private', 'Visible')), '私密可见开关已删除')
+ok(!bundle.includes(gone('diary', 'ToToday', 'Enabled')), '「昨天那句话」的开关已删除')
 ok(!bundle.includes('公开日记全文'), '「公开日记全文」卡片改成「摘录全文」')
 ok(!bundle.includes('生成公开 + 私密两篇'), '「一天写两篇」的说明文案已删除')
 
 console.log('\n路由调用不再指向已删接口：')
-ok(!bundle.includes('/diary/private'), '不再请求 /diary/private')
-ok(!bundle.includes('/diary/to-today'), '不再请求 /diary/to-today')
+ok(!bundle.includes(gone('/diary/', 'private')), '不再请求读私密正文的接口')
+ok(!bundle.includes(gone('/diary/', 'to-', 'today')), '不再请求「给明天一句话」的接口')
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

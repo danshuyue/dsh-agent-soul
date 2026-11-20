@@ -1,4 +1,4 @@
-/**
+﻿/**
  * R02 · T2 日记主流程总预算（第二份审查 H-2）
  *
  * 背景：`agents.resume` / `presets.resolve` / `presets.mount` 都没有超时，
@@ -37,7 +37,7 @@ function eq(actual, expected, name) {
 const { ensureDirs } = await imp('paths.js')
 ensureDirs()
 const { saveConfig } = await imp('store.js')
-saveConfig({ diarySessionId: 'session-budget-test', diaryAgentWrite: true })
+saveConfig({ excerptSessionId: 'session-budget-test', diaryAgentWrite: true })
 
 const scheduler = await imp('diary/scheduler.js')
 const { runDiaryOnce, DIARY_TOTAL_BUDGET_MS, __resetDiaryInFlightForTest } = scheduler

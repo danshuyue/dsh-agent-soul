@@ -1,10 +1,14 @@
 /**
- * R19 · 现实情境（④）+「昨天想对今天说的话」（⑥）
+ * R19 · 现实情境（④）（2026-11-09；2026-11-21 / 0.10.0 删掉「昨天想对今天说的话」那半）
  *
- * 两项都是「派生 / 旁路」：不新增状态源、不新增模型调用、各带一个总开关。
- * 测试重点是「关掉之后逐字节等价」与「不写就不写」—— 那两条最容易在实现里被顺手破坏。
+ * ④ 是「派生 / 旁路」：不新增状态源、不新增模型调用、各带一个总开关。
+ * 测试重点是「关掉之后逐字节等价」与「只给事实、不给指令」——
+ * 那两条最容易在实现里被顺手破坏。
+ *
+ * 原来的 ⑥「昨天想对今天说的话」在 0.10.0 整个删掉了（文件、路由、注入、UI、证据、配置键），
+ * 所以这里只保留 ④，另加「情境关掉后摘录 prompt 不带背景」这条等价性断言。
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -24,9 +28,9 @@ const eq = (a, e, n) => ok(JSON.stringify(a) === JSON.stringify(e), `${n}${JSON.
 
 const paths = await imp('paths.js')
 const situation = await imp('core/situation.js')
-const toToday = await imp('diary/to-today.js')
 const inject = await imp('host/runtime/inject.js')
 const evidence = await imp('evidence.js')
+const diary = await imp('diary.js')
 paths.ensureDirs()
 
 // ---------------------------------------------------------------------------
@@ -61,7 +65,7 @@ eq(situation.seasonOf(1), '冬', '1 月冬')
     holidays: {},
     withPeriod: false
   })
-  ok(!noPeriod.facts.some((f) => f.startsWith('现在是')), 'withPeriod:false 不带时段（日记按整天算）')
+  ok(!noPeriod.facts.some((f) => f.startsWith('现在是')), 'withPeriod:false 不带时段（摘录按整天算）')
   ok(noPeriod.facts.includes('11 月·秋'), '仍然带月份与季节')
 }
 
@@ -79,115 +83,64 @@ eq(situation.seasonOf(1), '冬', '1 月冬')
 }
 
 // ---------------------------------------------------------------------------
-console.log('⑥ 解析：从私密正文里取那一行')
-// ---------------------------------------------------------------------------
-eq(toToday.parseToToday('今天聊了很多。\n\n想对明天说：明天试着把"不吵"换成"我在"'),
-  '明天试着把"不吵"换成"我在"', '标准写法')
-eq(toToday.parseToToday('想对明天说：早点睡'), '早点睡', '只有一个标记行')
-eq(toToday.parseToToday('> 想对明天说：试着先听完'), '试着先听完', '引用前缀也能认')
-eq(toToday.parseToToday('- 想对明天说：少解释一点'), '少解释一点', '列表前缀也能认')
-eq(toToday.parseToToday('今天没有那句话'), '', '没有标记 → 空')
-eq(toToday.parseToToday(''), '', '空正文 → 空')
-eq(toToday.parseToToday('想对明天说：\n还有正文'), '', '标记后面空 → 空（不硬凑）')
-eq(toToday.parseToToday('想对明天说：第一句\n想对明天说：第二句'), '第二句', '多行标记取最后一条')
-
-// ---------------------------------------------------------------------------
-console.log('⑥ 收窄：字数上限')
+console.log('④ 情境只喂摘录 prompt 的「背景」，不进主干')
 // ---------------------------------------------------------------------------
 {
-  const long = '一'.repeat(40)
-  eq(toToday.normalizeToToday(long, 30).ok, false, '超过 30 字不接受')
-  ok(String(toToday.normalizeToToday(long, 30).reason).includes('30'), '原因里说了上限')
-  eq(toToday.normalizeToToday(' 明天试着少解释一点 ', 30).text, '明天试着少解释一点', '去掉首尾空白')
-  eq(toToday.normalizeToToday('', 30).ok, false, '空 → 不接受')
+  const withFacts = diary.composeExcerptMessage({}, '2026-10-29', '今天聊了天气', {
+    situation: ['今天是测试节', '已经 3 天没聊过了']
+  })
+  ok(withFacts.includes('背景：今天是测试节；已经 3 天没聊过了。'), '两条事实拼成一句背景')
+  ok(withFacts.includes('只是背景'), '明说「这只是背景」')
+
+  const noFacts = diary.composeExcerptMessage({}, '2026-10-29', '今天聊了天气')
+  ok(!noFacts.includes('背景：'), '没给事实时不会凭空冒出来')
+  ok(noFacts.includes('今天聊了天气'), '对话内容照常在')
 }
 
 // ---------------------------------------------------------------------------
-console.log('⑥ 落盘与跨天作废')
+console.log('④ 注入：前几天摘录（情境关掉不影响这一块）')
 // ---------------------------------------------------------------------------
 {
-  const saved = toToday.saveToToday('2026-11-09', '明天试着把"不吵"换成"我在"', { source: 'private-diary' })
-  eq(saved.ok, true, '写盘成功')
-  const read = toToday.readToToday('2026-11-09')
-  eq(read.text, '明天试着把"不吵"换成"我在"', '当天读得到')
-  eq(read.source, 'private-diary', '来源记下来了')
-  eq(toToday.readToToday('2026-11-10'), null, '换一天读不到（跨天作废，不需要清理任务）')
-  eq(toToday.saveToToday('2026-11-09', '', {}).ok, false, '空正文不写')
-  eq(toToday.saveToToday('bad-date', 'x', {}).ok, false, '非法日期不写')
-  eq(toToday.clearToToday().ok, true, '能删掉')
-  eq(toToday.readToToday('2026-11-09'), null, '删掉之后读不到')
+  const yesterday = diary.todayKey(Date.now() - 24 * 60 * 60 * 1000)
+  diary.writeExcerptFile(yesterday, '- 昨天把插件改完了')
+
+  const section = inject.renderRecentSection({ memoryRecentDiaryDays: 3, memoryRecentChatChars: 0 })
+  ok(section.includes('前几天的摘录'), '有「前几天的摘录」这一节')
+  ok(section.includes('昨天把插件改完了'), '条目进了上下文')
+  ok(!section.includes('前几天的日记'), '不再叫「前几天的日记」')
 }
 
 // ---------------------------------------------------------------------------
-console.log('⑥ 注入：只在新会话首轮出现一次')
+console.log('④ 开关证据：报告里能看见它')
 // ---------------------------------------------------------------------------
 {
-  // 今天以 mock 的时间为准：inject 用的是 todayKey(Date.now())，所以要用真实今天
-  const tonight = (await imp('diary/completion.js')).todayKey(Date.now())
-  toToday.saveToToday(tonight, '明天试着把"不吵"换成"我在"', { source: 'private-diary' })
-
-  const cfgOn = { memoryRecentDiaryDays: 0, memoryRecentChatChars: 0, diaryToTodayEnabled: true }
-  const withLine = inject.renderRecentSection(cfgOn)
-  ok(withLine.includes('昨天想对今天说的'), '开着的时候有这一节')
-  ok(withLine.includes('明天试着把"不吵"换成"我在"'), '那一句真的进了上下文')
-
-  const cfgOff = { ...cfgOn, diaryToTodayEnabled: false }
-  const withoutLine = inject.renderRecentSection(cfgOff)
-  eq(withoutLine, '', '关掉 → 逐字节等价（空串，不是「有标题没内容」）')
-
-  const cfgOtherDay = { ...cfgOn }
-  toToday.clearToToday()
-  eq(inject.renderRecentSection(cfgOtherDay), '', '今天没有这句 → 不出现这一节（不留空标题）')
-}
-
-// ---------------------------------------------------------------------------
-console.log('⑥ 开关证据：报告里能看见它')
-// ---------------------------------------------------------------------------
-{
-  const tonight = (await imp('diary/completion.js')).todayKey(Date.now())
-  const cfg = { enabled: true, diaryEnabled: true, diaryToTodayEnabled: true, situationEnabled: true }
-
-  toToday.clearToToday()
-  const before = evidence.statuses(cfg, {}).find((r) => r.key === 'diaryToTodayEnabled')
-  eq(before.status, '暂无', '今天还没写 → 暂无（不是「未生效」，也不是「生效」）')
-
-  toToday.saveToToday(tonight, '早点睡', {})
-  const after = evidence.statuses(cfg, {}).find((r) => r.key === 'diaryToTodayEnabled')
-  eq(after.status, '生效', '写了之后 → 生效')
-
-  const off = evidence.statuses({ ...cfg, diaryToTodayEnabled: false }, {}).find((r) => r.key === 'diaryToTodayEnabled')
-  eq(off.status, '未生效', '关掉 → 未生效')
-  ok(String(off.reason).includes('关'), '原因说人话')
-
+  const cfg = { enabled: true, diaryEnabled: true, situationEnabled: true }
   const sit = evidence.statuses({ ...cfg, situationEnabled: false }, {}).find((r) => r.key === 'situationEnabled')
   eq(sit.status, '未生效', '情境关掉也进报告')
+  ok(String(sit.reason).includes('关'), '原因说人话')
+
+  const excerptRow = evidence.statuses(cfg, {}).find((r) => r.key === 'diaryEnabled')
+  eq(excerptRow.label, '摘录', '摘录那条证据还在（不再叫「日记」）')
+
+  const keys = evidence.statuses(cfg, {}).map((row) => row.key)
+  ok(!keys.includes('diaryToTodayEnabled'), '「昨天那句话」的证据条目已删除')
 }
 
 // ---------------------------------------------------------------------------
-console.log('⑥ 端到端：她自己写私密日记 → 那一行被摘出来，正文一个字节没动')
+console.log('端到端：她自己写摘录 → 落盘，正文一个字节没动')
 // ---------------------------------------------------------------------------
 {
-  // 走真实调用路径（runDiaryOnce + 假 agent 写文件），不是直接调 parseToToday。
-  // 这是 11-04 那条教训的应用：纯函数测试全绿、调用点死了三天没人知道。
   const store = await imp('store.js')
-  const diary = await imp('diary.js')
-  const { runDiaryOnce, writeDiaryFile } = diary
-  const completion = await imp('diary/completion.js')
-
+  const { runDiaryOnce, writeExcerptFile } = diary
   const date = '2026-11-01'
-  store.saveConfig({ diarySessionId: 'sess-r19', diaryAgentWrite: true, diaryAgentTimeoutMs: 800, diaryToTodayEnabled: true, diaryToTodayMaxChars: 30 })
+  store.saveConfig({ excerptSessionId: 'sess-r19', diaryAgentWrite: true, diaryAgentTimeoutMs: 800 })
 
-  const marker = '想对明天说：明天试着把"不吵"换成"我在"'
+  const herBody = '- 灵魂插件：日记改成摘录\n- 复变：下周四考试'
   const asked = []
   const fakeAgent = {
     followup: (message) => {
       const text = String(message?.content?.[0]?.text ?? '')
-      if (text.includes('kind=public')) { asked.push('public'); writeDiaryFile('public', date, '她写的公开日记') }
-      else if (text.includes('kind=private')) {
-        asked.push('private')
-        // 她在私密正文末尾多写一行（这是 ⑥ 唯一需要的配合）
-        writeDiaryFile('private', date, `她写的私密日记，写了很多心里话。\n\n${marker}`)
-      }
+      if (text.includes('kind=excerpt')) { asked.push('excerpt'); writeExcerptFile(date, herBody) }
     }
   }
   const ctx = {
@@ -195,36 +148,17 @@ console.log('⑥ 端到端：她自己写私密日记 → 那一行被摘出来�
     llm: { stream: async function* () { throw new Error('不该走兜底') } }
   }
 
-  toToday.clearToToday()
   const done = await runDiaryOnce(ctx, date, undefined, { since: Date.now() + 5000 })
-  eq(done, true, '日记整体成功')
-  eq(asked.length, 2, '公开与私密都投递了')
+  eq(done, true, '摘录整体成功')
+  eq(asked.length, 1, '只投递了一条消息（0.10.0 起一天一篇）')
 
-  const today = completion.todayKey(Date.now())
-  const stored = toToday.readToToday(today)
-  ok(stored !== null, '那一句按「今天」存下来了')
-  eq(stored?.text, '明天试着把"不吵"换成"我在"', '内容正确')
-  eq(stored?.source, 'private-diary', '来源标记正确')
-
-  // 私密正文必须**原样保留**那一行 —— 我们只解析、不改写
-  const privateBody = (await import('node:fs')).readFileSync(paths.diaryPrivatePath(date), 'utf8')
-  ok(privateBody.includes(marker), '私密正文里那一行还在（从不改写正文）')
-  ok(privateBody.includes('她写的私密日记'), '正文主体没被动过')
+  const body = readFileSync(paths.diaryExcerptPath(date), 'utf8')
+  ok(body.includes(herBody), '她写的两条都在，正文没被改写')
+  ok(body.startsWith(`# ${date}`), '首行日期由插件补')
 }
 
-// ---------------------------------------------------------------------------
-console.log('界面：两个开关都在设置页里，卡片不是「有才显示」')
-// ---------------------------------------------------------------------------
-{
-  // 2026-11-09 修：第一版只在「今天有那句」时才渲染卡片，用户在设置页什么都没看到，
-  // 以为功能没做。这条断言把「卡片与开关必须在客户端产物里」钉住。
-  const { readFileSync } = await import('node:fs')
-  const bundle = readFileSync(join(root, 'lib/client.js'), 'utf8')
-  ok(bundle.includes('昨天想对今天说的'), '客户端产物里有这张卡片')
-  ok(bundle.includes('diaryToTodayEnabled'), '卡片旁边有开关')
-  ok(bundle.includes('situationEnabled'), '现实情境也有开关')
-  ok(bundle.includes('今天还没有这一句'), '没有这句时给的是轻说明，不是整块消失')
-}
+// 设置页那几条断言搬到了 tests/r22-excerpt-ui.test.js —— UI 与后端分两个提交，
+// 混在一起会让「后端提交」在旧 UI 上红。
 
 console.log('')
 console.log(`结果：${passed} 过 / ${failed} 败`)

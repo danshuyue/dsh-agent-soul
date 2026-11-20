@@ -1,13 +1,14 @@
-/**
- * 日记的情绪底色测试：node tests/mood-digest.test.js
+﻿/**
+ * 日记/摘录的情绪底色测试：node tests/mood-digest.test.js
  *
- * 钉的是三件事：
- *   1. 时间窗 —— 日记的一天以 22:00 分界，心情时间线要按同一个窗口筛
+ * 钉的是这几件事：
+ *   1. 时间窗 —— 心情时间线按「那天」的窗口筛
  *   2. 摘要 —— 跨工作区分片合并、七情取峰值、只挑有想法的条目
- *   3. 渲染 —— 公开版少给、私密版给全部（隔离口径跟两条触发消息一致）
+ *   3. 渲染 —— 公开版少给、私密版给全部（心情模块自己的两种档位）
+ *   4. 摘录的触发消息不再带情绪段（0.10.0：摘录只写事实）
  */
 import { moodDigest, renderMoodDigest } from '../lib/mood.js'
-import { composePrivateMessage, composePublicMessage, diaryWindowOf } from '../lib/diary.js'
+import { composeExcerptMessage, diaryDayBoundaries } from '../lib/diary.js'
 
 let passed = 0
 let failed = 0
@@ -36,10 +37,10 @@ const moodState = (timeline, dims = {}) => ({
 // 2026-10-29 22:00 是这一天和上一天的分界
 const at = (day, hour, minute = 0) => new Date(2026, 9, day, hour, minute, 0, 0).getTime()
 
-console.log('\n[1] 日记的一天：自然日（2026-11-01 起不再按 22:00 切）')
+console.log('\n[1] 「那一天」的窗口：自然日（心情时间线按同一个窗口筛）')
 
 {
-  const { since, until } = diaryWindowOf('2026-10-29', 22 * 60)
+  const { start: since, end: until } = diaryDayBoundaries('2026-10-29', 22 * 60)
   eq(new Date(until).getDate(), 30, '窗口截止在次日 00:00')
   eq(new Date(until).getHours(), 0, '截止是 0 点')
   eq(new Date(since).getDate(), 29, '窗口起于当天')
@@ -47,7 +48,7 @@ console.log('\n[1] 日记的一天：自然日（2026-11-01 起不再按 22:00 �
   eq(until - since, 24 * 3600000, '正好 24 小时')
 
   // schedule 参数只为兼容保留：传什么值都不该改变结果
-  const late = diaryWindowOf('2026-10-29', 60)
+  const late = { until: diaryDayBoundaries('2026-10-29', 60).end }
   eq(late.until, until, 'schedule 改成 01:00 也不变')
 }
 
@@ -60,7 +61,7 @@ console.log('\n[2] 摘要：时间窗筛选')
     { at: at(29, 12), mood: 70, delta: 6, reason: '中午他报了平安，我心里那块石头落了' },
     { at: at(29, 23), mood: 75, delta: 5, reason: '深夜他还在改插件，我陪着' }
   ])]
-  const { since, until } = diaryWindowOf('2026-10-29', 22 * 60)
+  const { start: since, end: until } = diaryDayBoundaries('2026-10-29', 22 * 60)
   const digest = moodDigest(states, { since, until })
 
   ok(digest.empty === false, '窗口里有内容')
@@ -181,18 +182,12 @@ console.log('\n[6] 渲染：公开版浅、私密版全')
   ok(!/要写得|表现得|开心一点/.test(pub), '没有「写得开心一点」这类指令')
 }
 
-console.log('\n[7] 触发消息里真的带上了')
+console.log('\n[7] 摘录的触发消息里**不再**带情绪段（0.10.0：摘录只写事实）')
 
 {
-  const moodText = '【今天的情绪】\n心情 68 → 76'
-  const pub = composePublicMessage({}, '2026-10-29', '今天聊了天气', { public: '' }, moodText)
-  const priv = composePrivateMessage({}, '2026-10-29', '今天聊了天气', { public: '', all: '' }, moodText)
-  ok(pub.includes(moodText), '公开触发消息带上情绪段')
-  ok(priv.includes(moodText), '私密触发消息带上情绪段')
-
-  const bare = composePublicMessage({}, '2026-10-29', '今天聊了天气', { public: '' })
-  ok(!bare.includes('【今天的情绪】'), '没给情绪时不会凭空冒出来')
-  ok(bare.includes('今天聊了天气'), '对话内容照常在')
+  const message = composeExcerptMessage({}, '2026-10-29', '今天聊了天气')
+  ok(!message.includes('【今天的情绪】'), '情绪记录不再进摘录 prompt')
+  ok(message.includes('今天聊了天气'), '对话内容照常在')
 }
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)

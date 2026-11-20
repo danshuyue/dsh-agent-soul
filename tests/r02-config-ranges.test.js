@@ -43,7 +43,9 @@ console.log('① 区间表覆盖度与默认值自洽')
   const numericKeys = Object.entries(DEFAULT_CONFIG).filter(([, v]) => typeof v === 'number').map(([k]) => k)
   const missing = numericKeys.filter((k) => NUMBER_RANGES[k] === undefined)
   eq(missing, [], `区间表覆盖全部 ${numericKeys.length} 个数值键`)
-  ok(numericKeys.length >= 35, `数值键数量 ${numericKeys.length}（>=35）`)
+  // 0.10.0：删了三个数值键（一句话字数上限 + 两个情绪底色条数），
+  // 加了 excerptMaxLines —— 总数从 35 降到 33，门槛跟着下调（这条是「表没漏键」的粗筛，不是精确计数）。
+  ok(numericKeys.length >= 33, `数值键数量 ${numericKeys.length}（>=33）`)
 
   const badDefaults = []
   for (const [k, v] of Object.entries(DEFAULT_CONFIG)) {
@@ -66,8 +68,8 @@ console.log('② 超时类：1e12 必须被拒（H-1 的核心）')
     eq(validateConfigEntry(key, DEFAULT_CONFIG[key]).ok, true, `${key} 默认值通过`)
   }
   // 时间戳类必须仍然放行（这是我上一版「不设上限」的唯一正当理由）
-  eq(validateConfigEntry('diarySessionBornAt', 1790000000000), { ok: true, value: 1790000000000 },
-    'diarySessionBornAt 的大时间戳仍然通过')
+  eq(validateConfigEntry('excerptSessionBornAt', 1790000000000), { ok: true, value: 1790000000000 },
+    'excerptSessionBornAt 的大时间戳仍然通过')
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +157,9 @@ console.log('⑥ 端到端：POST /config 把超时改成 1e12 必须 400')
   const whole = await call('POST', '/config', DEFAULT_CONFIG)
   eq(whole.status, 200, '整份默认配置提交 → 200')
   const keys = Object.keys(whole.json?.config ?? {})
-  ok(keys.length >= 70, `保存回来的配置键数 ${keys.length}（>=70，没丢键）`)
+  // 0.10.0 删了 5 个键（一句话字数、私密开关/语气、两个情绪底色条数）、加了 excerptMaxLines，
+  // 门槛随之下调；这条只防「一次改动静默丢了一大片键」。
+  ok(keys.length >= 65, `保存回来的配置键数 ${keys.length}（>=65，没丢键）`)
 }
 
 console.log('')

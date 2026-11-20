@@ -1,4 +1,4 @@
-/**
+﻿/**
  * P14 · HTTP 路由行为契约（2026-11-06）
  *
  * 为「真拆 registerApi」建的前置安全网。现有门禁只钉外部导出 / 依赖图 / 记忆渲染，
@@ -103,7 +103,6 @@ const CASES = [
   ['POST', '/register', {}, 400, false],
   ['GET', '/diary/list', undefined, 200, true],
   ['GET', '/diary/read', undefined, 400, false],
-  ['GET', '/diary/private', undefined, 403, false],
   ['GET', '/diary/sessions', undefined, 200, true],
   ['POST', '/diary/bind', {}, 400, false],
   ['POST', '/diary/unbind', {}, 200, true],
@@ -158,12 +157,10 @@ const EXPECTED_ROUTES = [
   'GET /attestation', 'GET /persona', 'POST /persona', 'POST /open', 'GET /state',
   'POST /config', 'POST /secret', 'GET /memory', 'POST /memory', 'POST /maintain',
   'GET /mood', 'POST /mood/reset', 'POST /mood/decay', 'POST /goal', 'POST /register',
-  'POST /pick', 'GET /diary/list', 'GET /diary/read', 'GET /diary/private',
+  'POST /pick', 'GET /diary/list', 'GET /diary/read',
   'GET /diary/sessions', 'POST /diary/bind', 'POST /diary/unbind', 'POST /diary',
   'GET /notes/list', 'GET /notes/read', 'POST /notes/save', 'POST /notes/rename',
   'POST /notes/delete',
-  // 2026-11-09 R19 / ⑥：改写 / 删掉「昨天想对今天说的」
-  'POST /diary/to-today',
   // 2026-11-07 R10 / P2-15：手动轮换会话令牌（要带当前令牌）
   'POST /session/rotate'
 ].sort()

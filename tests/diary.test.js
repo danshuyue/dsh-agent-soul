@@ -1,18 +1,23 @@
 /**
- * 日记测试：node tests/diary.test.js
+ * 摘录测试：node tests/diary.test.js
  *
  * 覆盖：
  *   ① 时间工具：todayKey / parseDateLocal / scheduleMinutes / diaryDayBoundaries
  *   ② 对话扫描：collectForDiary（独立游标、跳过注入消息、收 assistant）
- *   ③ 对话读取：readDiaryConversations（22:00 分界裁剪、两天文件合并）
- *   ④ 补写：findMissingDay（未写过日记不补、没对话的日子不补）
- *   ⑤ 触发消息：composePublicMessage / composePrivateMessage（公开那条绝不能带私密历史）
+ *   ③ 对话读取：readDiaryConversations（自然日裁剪、两天文件合并）
+ *   ④ 补写：findMissingDay（没写过摘录不补、没对话的日子不补）
+ *   ⑤ 触发消息：composeExcerptMessage（一条、一篇、不写感受）
  *   ⑥ 等待落盘：waitForWrite
+ *   ⑦ 最近摘录：readRecentExcerpts
+ *   ⑧ 绑定会话：diaryAgent
  *
  * 用例里的事件形状全部照真机来：user 正文在 data.content，
  * assistant 正文在 data.message.content（多一层 message）。
+ *
+ * 2026-11-21 / 0.10.0：日记 → 摘录。原来这里测的「公开/私密两条消息」、
+ * 「私密查看闸门」、以及废弃的 summarizeConversations 都随功能删掉了。
  */
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -41,17 +46,17 @@ const {
   collectForDiary,
   readDiaryConversations,
   findMissingDay,
-  composePublicMessage,
-  composePrivateMessage,
+  composeExcerptMessage,
   waitForWrite,
-  readRecentDiaries,
+  readRecentExcerpts,
+  renderRecentExcerpts,
   resetDiaryCursor,
+  writeExcerptFile,
   diaryAgent
 } = diary
 
-const { diaryJsonlPath, diaryPublicPath, diaryPrivatePath, ensureDirs } = await import('../lib/paths.js')
+const { diaryJsonlPath, diaryExcerptPath, ensureDirs } = await import('../lib/paths.js')
 const { exists } = await import('../lib/paths.js')
-const { readFileSync } = await import('node:fs')
 
 // ---------------------------------------------------------------------------
 console.log('时间工具')
@@ -171,7 +176,7 @@ const realEvent = (seq, type, text, kind) => ({
 }
 
 // 真机 assistant/message：正文在 data.message.content（**有** message 这一层），
-// 且绝大多数条目只有 reasoning —— 日记要记的是她说出口的话，不是心里想的
+// 且绝大多数条目只有 reasoning —— 摘录要记的是她说出口的话，不是心里想的
 {
   const realAssistantEvent = (seq, blocks) => ({
     type: 'assistant/message',
@@ -256,29 +261,29 @@ console.log('对话读取（readDiaryConversations）')
   const text = readDiaryConversations(todayStr, 22 * 60)
 
   // 自然日：今天 00:00 ~ 次日 00:00，深夜 22 点当然还在今天里面
-  ok(text.includes('今早的消息'), '今天 00:01 的消息包含在日记日内')
-  ok(text.includes('今天晚上的消息'), '今天 21:00 的消息包含在日记日内')
+  ok(text.includes('今早的消息'), '今天 00:01 的消息包含在这一天内')
+  ok(text.includes('今天晚上的消息'), '今天 21:00 的消息包含在这一天内')
   ok(text.includes('今天十点后的消息'), '今天 22:00 的消息也包含（不再按 22 点切）')
-  ok(!text.includes('昨天的旧消息'), '昨天的消息不在今天的日记日里')
+  ok(!text.includes('昨天的旧消息'), '昨天的消息不在今天这一天里')
   ok(!text.includes('昨晚十点的消息'), '昨天 22:00 也不会被算进今天')
 
   // 反过来看昨天那一天：21 点和 22 点两条都在
   const yText = readDiaryConversations(yesterdayStr, 22 * 60)
-  ok(yText.includes('昨天的旧消息') && yText.includes('昨晚十点的消息'), '昨天的两条都在昨天的日记日内')
+  ok(yText.includes('昨天的旧消息') && yText.includes('昨晚十点的消息'), '昨天的两条都在昨天那一天里')
 }
 
 // ---------------------------------------------------------------------------
 console.log('补写（findMissingDay）')
 // ---------------------------------------------------------------------------
 
-// 一篇日记都没有（刚装上插件）：不补写 —— 补写是补断档，不是回溯历史
+// 一篇摘录都没有（刚装上插件）：不补写 —— 补写是补断档，不是回溯历史
 {
   const today = todayKey()
   const missing = findMissingDay(today, 7)
-  ok(missing === null, '从未写过日记 → 不补写')
+  ok(missing === null, '从未写过摘录 → 不补写')
 }
 
-// 昨天有日记、前天有对话但没日记：只补前天（最近的一个）
+// 昨天有摘录、前天有对话但没摘录：只补前天（最近的一个）
 {
   ensureDirs()
   const today = new Date()
@@ -287,25 +292,23 @@ console.log('补写（findMissingDay）')
   const yesterdayStr = todayKey(today.getTime() - 24 * 60 * 60 * 1000)
   const dayBeforeStr = todayKey(today.getTime() - 2 * 24 * 60 * 60 * 1000)
 
-  // 昨天「完整写过」= 两篇都在，且 mtime 都过了当天的窗口闭合（次日 00:00）。
+  // 昨天「完整写过」= 摘录在，且 mtime 过了当天的窗口闭合（次日 00:00）。
   // 这里写文件的时间就是现在（今天），自然满足。
-  writeFileSync(diaryPrivatePath(yesterdayStr), '【私密】\n2026-10-28\ntest', 'utf8')
-  writeFileSync(diaryPublicPath(yesterdayStr), '【公开】\n2026-10-28\ntest', 'utf8')
-  // 前天有对话、没有日记
+  writeExcerptFile(yesterdayStr, '- 昨天的事')
+  // 前天有对话、没有摘录
   writeFileSync(diaryJsonlPath(dayBeforeStr), '{"t":1,"role":"user","text":"x"}\n', 'utf8')
 
   const missing = findMissingDay(todayStr, 7)
   // 今天不算（findMissingDay 从 1 开始，即昨天），昨天有 → 继续往前找
-  // 前天没有日记但有对话 → 返回前天
-  ok(missing === dayBeforeStr, `昨天有日记、前天有对话没日记 → 补前天（实际 ${missing}，期望 ${dayBeforeStr}）`)
+  // 前天没有摘录但有对话 → 返回前天
+  ok(missing === dayBeforeStr, `昨天有摘录、前天有对话没摘录 → 补前天（实际 ${missing}，期望 ${dayBeforeStr}）`)
 
   // 清理
-  rmSync(diaryPrivatePath(yesterdayStr))
-  rmSync(diaryPublicPath(yesterdayStr))
+  rmSync(diaryExcerptPath(yesterdayStr))
   rmSync(diaryJsonlPath(dayBeforeStr))
 }
 
-// 缺失日没有对话：不补（补出来只能是空洞的意识流）
+// 缺失日没有对话：不补（补出来只能是空洞的条目）
 {
   ensureDirs()
   const today = new Date()
@@ -319,16 +322,16 @@ console.log('补写（findMissingDay）')
     if (exists(diaryJsonlPath(key))) rmSync(diaryJsonlPath(key))
   }
 
-  // 前提：已经写过日记（否则走「从未写过 → 不补」那条，测不到这条判据）
-  writeFileSync(diaryPrivatePath(dayBeforeStr), '【私密】\ntest', 'utf8')
+  // 前提：已经写过摘录（否则走「从未写过 → 不补」那条，测不到这条判据）
+  writeExcerptFile(dayBeforeStr, '- 一件旧事')
 
   const missing = findMissingDay(todayStr, 7)
   ok(missing === null, '缺失日没有对话 → 不补（实际 ' + missing + '）')
 
-  rmSync(diaryPrivatePath(dayBeforeStr))
+  rmSync(diaryExcerptPath(dayBeforeStr))
 }
 
-// 最近 7 天都有日记：没有缺失日
+// 最近 7 天都有摘录：没有缺失日
 {
   ensureDirs()
   const today = new Date()
@@ -337,98 +340,74 @@ console.log('补写（findMissingDay）')
 
   for (let i = 1; i <= 7; i++) {
     const key = todayKey(today.getTime() - i * 24 * 60 * 60 * 1000)
-    writeFileSync(diaryPrivatePath(key), '【私密】\ntest', 'utf8')
+    writeExcerptFile(key, '- 事')
   }
 
   const missing = findMissingDay(todayStr, 7)
-  ok(missing === null, '最近 7 天都有日记 → 没有缺失日')
+  ok(missing === null, '最近 7 天都有摘录 → 没有缺失日')
 
   // 清理
   for (let i = 1; i <= 7; i++) {
     const key = todayKey(today.getTime() - i * 24 * 60 * 60 * 1000)
-    rmSync(diaryPrivatePath(key))
+    rmSync(diaryExcerptPath(key))
   }
 }
 
 // ---------------------------------------------------------------------------
-console.log('触发消息（composeTriggerMessage）')
+console.log('触发消息（composeExcerptMessage）')
 // ---------------------------------------------------------------------------
 
 {
-  const config = {
-    diaryPublicTone: '温暖但克制',
-    diaryPrivateTone: '真实、不设防'
-  }
-  const recent = {
-    public: '【公开】\n2026-10-28\n昨天……',
-    all: '【公开】\n2026-10-28\n昨天……\n\n---\n\n【私密】\n2026-10-28\n内绪……'
-  }
-  const pubMsg = composePublicMessage(config, '2026-10-29', '今天聊了很多', recent)
-  const privMsg = composePrivateMessage(config, '2026-10-29', '今天聊了很多', recent)
+  const config = { diaryPublicTone: '平实、只写事实', excerptMaxLines: 15 }
+  const msg = composeExcerptMessage(config, '2026-10-29', '今天聊了很多')
 
-  ok(pubMsg.includes('今天是 2026-10-29'), '公开消息包含日期')
-  ok(pubMsg.includes('今天聊了很多'), '公开消息包含摘要')
-  ok(pubMsg.includes('温暖但克制'), '公开消息带公开语气')
-  ok(!pubMsg.includes('真实、不设防'), '公开消息不带私密语气')
+  ok(msg.includes('2026-10-29'), '消息包含日期')
+  ok(msg.includes('今天聊了很多'), '消息包含素材')
+  ok(msg.includes('平实、只写事实'), '消息带摘录语气')
   // 2026-11-04：不再给绝对路径了 —— 改成让她用 soul_diary 工具写。
-  // 给路径是假定她有通用文件工具（宿主打包在 exe 里，赌不起），而且她自己拼路径拼错一次
-  // 就是写了一篇谁也找不到的日记。
-  ok(pubMsg.includes('soul_diary') && pubMsg.includes('kind=public'), '公开消息指明用 soul_diary 写（kind=public）')
-  ok(!pubMsg.includes(diaryPrivatePath('2026-10-29')), '公开消息不提私密文件路径')
-  ok(pubMsg.includes('私密那篇等我下一条消息'), '公开消息交代写完先停')
-
-  ok(privMsg.includes('2026-10-29'), '私密消息包含日期')
-  ok(privMsg.includes('真实、不设防'), '私密消息带私密语气')
-  ok(privMsg.includes('soul_diary') && privMsg.includes('kind=private'), '私密消息指明用 soul_diary 写（kind=private）')
-  // 2026-11-11 提示词改成人话：旧原话「接着写私密那篇」变成「接着写 <日期> 的私密日记」，
-  // 所以这里钉意图（承接 + 私密），不钉原话
-  ok(privMsg.includes('接着写') && privMsg.includes('私密日记'), '私密消息承接公开那篇（写完再写下一篇）')
-}
-
-// 公开那条消息里绝不能出现私密内容 —— 这是拆成两条投递的全部意义
-{
-  const recent = {
-    public: '【公开】\n2026-10-28\n只该出现在公开段',
-    all: '【公开】\n2026-10-28\n只该出现在公开段\n\n---\n\n【私密】\n2026-10-28\n只该出现在私密段'
-  }
-  const pubMsg = composePublicMessage({}, '2026-10-29', '今天聊了很多', recent)
-  const privMsg = composePrivateMessage({}, '2026-10-29', '今天聊了很多', recent)
-
-  ok(!pubMsg.includes('只该出现在公开段'), '公开消息不再投前几天的公开日记（2026-11-08）')
-  ok(pubMsg.includes('action=look'), '公开消息给一个自己翻的出口')
-  ok(!pubMsg.includes('只该出现在私密段'), '公开消息**不**带私密日记')
-  // 2026-11-11 改：私密消息也不再带私密历史 —— 私密篇会自我喂养，
-  // 11-04 只发生过一次的「删了第二个」被反复写进后续日记、最后累加成「第四天」。
-  ok(!privMsg.includes('只该出现在私密段'), '私密消息也不带私密日记（防自我喂养）')
-  ok(privMsg.includes('只该出现在公开段'), '私密消息带公开历史')
+  ok(msg.includes('soul_diary') && msg.includes('kind=excerpt'), '指明用 soul_diary 写（kind=excerpt）')
+  ok(msg.includes('一行一条'), '写明格式：一行一条')
+  ok(msg.includes('不写时间'), '写明不写时间')
+  ok(msg.includes('觉得 / 看得出 / 其实 / 似乎 / 也许'), '写明禁止的感受词')
+  ok(msg.includes('最多 15 条'), '写明上限条数')
+  ok(msg.includes('（今天没有对话）'), '写明「没有对话」时写什么')
+  ok(!msg.includes('私密'), '不再提私密那篇')
+  ok(!msg.includes('公开那篇'), '不再提两篇的先后顺序')
 }
 
 // 空语气：不出现「语气：」行
 {
-  const pubMsg = composePublicMessage({}, '2026-10-29', '今天没有对话', { public: '', all: '' })
-  const privMsg = composePrivateMessage({}, '2026-10-29', '今天没有对话', { public: '', all: '' })
-  ok(!pubMsg.includes('语气：'), '公开消息空语气不输出语气行')
-  ok(!privMsg.includes('语气：'), '私密消息空语气不输出语气行')
-  ok(pubMsg.includes('意识流'), '无对话时给出意识流提示')
+  const msg = composeExcerptMessage({}, '2026-10-29', '今天没有对话')
+  ok(!msg.includes('语气：'), '空语气不输出语气行')
+  ok(msg.includes('今天没有对话'), '素材原样带着')
 }
 
-// waitForWrite：等公开那篇落盘用，等不到也不能卡死
+// 前几天的摘录作为参考，且明确「不是这一天的事」
 {
-  const neverFile = diaryPublicPath('2099-01-01')
+  const msg = composeExcerptMessage({}, '2026-10-29', '素材', {
+    recentExcerpts: [{ date: '2026-10-28', lines: ['昨天写了插件'] }]
+  })
+  ok(msg.includes('昨天写了插件'), '带上前几天的摘录')
+  ok(msg.includes('不是这一天的事'), '明说那是前几天写的')
+}
+
+// waitForWrite：等她落盘用，等不到也不能卡死
+{
+  const neverFile = diaryExcerptPath('2099-01-01')
   const t0 = Date.now()
   const got = await waitForWrite(neverFile, 120, 50)
   ok(got === false, '等不到时返回 false')
   ok(Date.now() - t0 >= 120, '确实等满超时才返回')
 
   ensureDirs()
-  const soonFile = diaryPublicPath('2099-01-02')
-  setTimeout(() => writeFileSync(soonFile, '【公开】', 'utf8'), 100)
+  const soonFile = diaryExcerptPath('2099-01-02')
+  setTimeout(() => writeFileSync(soonFile, '# 2099-01-02\n\n- x\n', 'utf8'), 100)
   const got2 = await waitForWrite(soonFile, 3000, 50)
   ok(got2 === true, '文件被写入时能等到')
 }
 
 // ---------------------------------------------------------------------------
-console.log('最近日记（readRecentDiaries）')
+console.log('最近摘录（readRecentExcerpts）')
 // ---------------------------------------------------------------------------
 
 {
@@ -436,61 +415,20 @@ console.log('最近日记（readRecentDiaries）')
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // 昨天有公开 + 私密
   const yesterdayStr = todayKey(today.getTime() - 24 * 60 * 60 * 1000)
-  writeFileSync(diaryPublicPath(yesterdayStr), '【公开】\n2026-10-28\npub', 'utf8')
-  writeFileSync(diaryPrivatePath(yesterdayStr), '【私密】\n2026-10-28\npriv', 'utf8')
+  writeExcerptFile(yesterdayStr, '- pub')
 
-  const result = readRecentDiaries(todayKey(today.getTime()), 4)
-
-  ok(result.public.includes('【公开】'), 'public 只包含公开日记')
-  ok(!result.public.includes('【私密】'), 'public 不包含私密日记')
-  ok(result.all.includes('【公开】'), 'all 包含公开日记')
-  ok(result.all.includes('【私密】'), 'all 包含私密日记')
+  const rows = readRecentExcerpts(todayKey(today.getTime()), 4)
+  ok(rows.length === 1 && rows[0].date === yesterdayStr, '读到昨天那一篇')
+  ok(rows[0].lines.includes('pub'), '条目读得出来')
+  ok(renderRecentExcerpts(rows, { linesPerDay: 3 }).includes('pub'), '渲染成注入用的参考段')
 
   // 清理
-  rmSync(diaryPublicPath(yesterdayStr))
-  rmSync(diaryPrivatePath(yesterdayStr))
+  rmSync(diaryExcerptPath(yesterdayStr))
 }
 
 // ---------------------------------------------------------------------------
-console.log('摘要（summarizeConversations）')
-// ---------------------------------------------------------------------------
-
-const { summarizeConversations } = diary
-
-// 没有 llm 服务 → 返回 null（调用方用原文兜底）
-{
-  const r = await summarizeConversations(null, '今天聊了天', {}, null)
-  ok(r === null, '没有 llm 返回 null（交给调用方兜底）')
-}
-
-// 空对话 → 返回空串，不调模型
-{
-  const r = await summarizeConversations({ stream: function () { throw new Error('不该被调用') } }, '   ', {}, null)
-  ok(r === '', '空对话直接返回空串，不调模型')
-}
-
-// 有 llm 但找不到模型目标 → null
-{
-  const r = await summarizeConversations({ stream: async function* () {} }, '有内容', {}, null)
-  ok(r === null, '没有模型目标返回 null')
-}
-
-// 正常流式返回 → 截断到 maxSummaryChars
-{
-  const llm = {
-    stream: async function* () {
-      yield { type: 'text-delta', text: '摘要内容' }
-    }
-  }
-  const agent = { options: { provider: 'p', model: 'm' } }
-  const r = await summarizeConversations(llm, '有内容', { diaryMaxSummaryChars: 3 }, agent)
-  ok(r === '摘要内容'.slice(0, 3), `摘要按 maxSummaryChars 截断（实际 ${r}）`)
-}
-
-// ---------------------------------------------------------------------------
-console.log('参考天数（readRecentDiaries 边界）')
+console.log('参考天数（readRecentExcerpts 边界）')
 // ---------------------------------------------------------------------------
 
 // days=1 只读昨天
@@ -500,24 +438,23 @@ console.log('参考天数（readRecentDiaries 边界）')
   today.setHours(0, 0, 0, 0)
   const y = todayKey(today.getTime() - 24 * 60 * 60 * 1000)
   const d2 = todayKey(today.getTime() - 2 * 24 * 60 * 60 * 1000)
-  writeFileSync(diaryPublicPath(y), '【公开】\ny1\n(yesterday)', 'utf8')
-  writeFileSync(diaryPublicPath(d2), '【公开】\ny2\n(two days ago)', 'utf8')
+  writeExcerptFile(y, '- (yesterday)')
+  writeExcerptFile(d2, '- (two days ago)')
 
-  const r1 = readRecentDiaries(todayKey(today.getTime()), 1)
-  ok(r1.public.includes('(yesterday)'), 'days=1 读到昨天')
-  ok(!r1.public.includes('(two days ago)'), 'days=1 读不到前天')
+  const r1 = readRecentExcerpts(todayKey(today.getTime()), 1)
+  ok(r1.some((row) => row.lines.includes('(yesterday)')), 'days=1 读到昨天')
+  ok(!r1.some((row) => row.lines.includes('(two days ago)')), 'days=1 读不到前天')
 
-  rmSync(diaryPublicPath(y))
-  rmSync(diaryPublicPath(d2))
+  rmSync(diaryExcerptPath(y))
+  rmSync(diaryExcerptPath(d2))
 }
 
 // ---------------------------------------------------------------------------
-console.log('专属日记会话（diaryAgent）')
+console.log('专属摘录会话（diaryAgent）')
 // ---------------------------------------------------------------------------
 
 const { saveConfig } = await import('../lib/store.js')
 const { normalizeConfig } = await import('../lib/memory.js')
-const { diaryDir } = await import('../lib/paths.js')
 const { LOG_FILE } = await import('../lib/env.js')
 
 function soulLog() {
@@ -577,18 +514,18 @@ function makeDiaryCtx({
 
 // ① 未绑定：直接跳过，不碰 agents（更不 create）
 {
-  saveConfig({ diarySessionId: '' })
+  saveConfig({ excerptSessionId: '' })
   const before = soulLog().length
   const { ctx, calls } = makeDiaryCtx()
   const agent = await diaryAgent(ctx)
   ok(agent === undefined, '未绑定会话：返回 undefined')
   ok(calls.get.length === 0 && calls.resume.length === 0 && calls.create.length === 0, '未绑定会话：get/resume/create 都没调')
-  ok(soulLog().slice(before).includes('没有绑定日记会话'), '未绑定会留日志')
+  ok(soulLog().slice(before).includes('没有绑定摘录会话'), '未绑定会留日志')
 }
 
 // ② get 命中：直接用活会话，不再 resume/create
 {
-  saveConfig({ diarySessionId: 'session-my-diary' })
+  saveConfig({ excerptSessionId: 'session-my-diary' })
   const liveAgent = diaryFakeAgent('session-my-diary')
   const { ctx, calls } = makeDiaryCtx({ live: (id) => (id === 'session-my-diary' ? liveAgent : undefined) })
   const agent = await diaryAgent(ctx)
@@ -599,7 +536,7 @@ function makeDiaryCtx({
 
 // ③ get 未命中 → resume 绑定的 id
 {
-  saveConfig({ diarySessionId: 'session-my-diary' })
+  saveConfig({ excerptSessionId: 'session-my-diary' })
   const resumed = diaryFakeAgent('session-my-diary')
   const { ctx, calls } = makeDiaryCtx({ resume: async () => ({ agent: resumed }) })
   const agent = await diaryAgent(ctx)
@@ -610,7 +547,7 @@ function makeDiaryCtx({
 
 // ④ 两级都失败：不创建、不猜、留原因（2026-10-31 的核心约束）
 {
-  saveConfig({ diarySessionId: 'session-my-diary' })
+  saveConfig({ excerptSessionId: 'session-my-diary' })
   const before = soulLog().length
   const { ctx, calls } = makeDiaryCtx({
     live: () => { throw new Error('registry down') },
@@ -632,27 +569,64 @@ function makeDiaryCtx({
 
 // ⑤ 没有 agents 服务：跳过并说明
 {
-  saveConfig({ diarySessionId: 'session-my-diary' })
+  saveConfig({ excerptSessionId: 'session-my-diary' })
   const agent = await diaryAgent({})
   ok(agent === undefined, '没有 agents 服务时返回 undefined')
 }
 
 // 配置归一
 {
-  ok(normalizeConfig({}).diarySessionId === '', 'diarySessionId 默认空串')
-  ok(normalizeConfig({ diarySessionId: '  session-a  ' }).diarySessionId === 'session-a', 'diarySessionId 去首尾空格')
-  ok(normalizeConfig({ diarySessionId: 123 }).diarySessionId === '', 'diarySessionId 非字符串回默认空串')
-  ok(normalizeConfig({}).diaryPrivateVisible === false, 'diaryPrivateVisible 默认 false（私密不出服务器）')
-  ok(normalizeConfig({ diaryPrivateVisible: true }).diaryPrivateVisible === true, 'diaryPrivateVisible 可显式打开')
+  ok(normalizeConfig({}).excerptSessionId === '', 'excerptSessionId 默认空串')
+  ok(normalizeConfig({ excerptSessionId: '  session-a  ' }).excerptSessionId === 'session-a', 'excerptSessionId 去首尾空格')
+  ok(normalizeConfig({ excerptSessionId: 123 }).excerptSessionId === '', 'excerptSessionId 非字符串回默认空串')
+  ok(normalizeConfig({}).excerptMaxLines === 15, 'excerptMaxLines 默认 15')
+  ok(normalizeConfig({ excerptMaxLines: 3 }).excerptMaxLines === 5, 'excerptMaxLines 低于下限夹到 5')
+  ok(normalizeConfig({ excerptMaxLines: 999 }).excerptMaxLines === 60, 'excerptMaxLines 高于上限夹到 60')
 }
 
 // ---------------------------------------------------------------------------
-console.log('私密日记查看（2026-10-31）')
+console.log('旧配置迁移（diarySessionId → excerptSessionId）')
 // ---------------------------------------------------------------------------
 
-const { isLoopbackRequest, privateDiaryView } = await import('../lib/api.js')
+{
+  const { writeFileSync: writeFile, rmSync: rm } = await import('node:fs')
+  const { configPath } = await import('../lib/paths.js')
+  const store = await import('../lib/store.js')
 
-// 回环判定：真 / 假各一条（含 IPv4-mapped IPv6）
+  ensureDirs()
+  // 老配置：只有旧键，没有 excerptSessionId —— 升级后不能把绑定丢了
+  writeFile(configPath(), JSON.stringify({
+    ownerName: '树树',
+    diarySessionId: 'session-legacy-old',
+    diarySessionBornAt: 1_790_000_000_000
+  }, null, 2), 'utf8')
+  store.resetCaches()
+  const migrated = store.loadConfig()
+  ok(migrated.excerptSessionId === 'session-legacy-old', `旧 diarySessionId 被搬到 excerptSessionId（实际 ${migrated.excerptSessionId}）`)
+  ok(migrated.excerptSessionBornAt === 1_790_000_000_000, '旧 bornAt 也一起搬过来')
+  // 写回文件（只迁一次）：文件里应该已经出现新键
+  const onDisk = JSON.parse(readFileSync(configPath(), 'utf8'))
+  ok(onDisk.excerptSessionId === 'session-legacy-old', '迁移结果已写回 persona.json')
+
+  // 新键存在时（哪怕是空串）→ 尊重用户，不再迁移
+  writeFile(configPath(), JSON.stringify({
+    excerptSessionId: '',
+    diarySessionId: 'session-should-not-win'
+  }, null, 2), 'utf8')
+  store.resetCaches()
+  ok(store.loadConfig().excerptSessionId === '', '已有新键时不再用旧键覆盖')
+
+  rm(configPath(), { force: true })
+  store.resetCaches()
+}
+
+
+// ---------------------------------------------------------------------------
+console.log('回环判定（接口边界）')
+// ---------------------------------------------------------------------------
+
+const { isLoopbackRequest } = await import('../lib/api.js')
+
 {
   ok(isLoopbackRequest({ socket: { remoteAddress: '127.0.0.1' } }) === true, '回环判定：127.0.0.1 放行')
   ok(isLoopbackRequest({ socket: { remoteAddress: '::1' } }) === true, '回环判定：::1 放行')
@@ -661,30 +635,8 @@ const { isLoopbackRequest, privateDiaryView } = await import('../lib/api.js')
   ok(isLoopbackRequest({}) === false, '回环判定：拿不到 remoteAddress 也拒绝')
 }
 
-// 开关关着：403，且响应里没有正文
-{
-  ensureDirs()
-  const file = diaryPrivatePath('2026-10-31')
-  writeFileSync(file, 'PRIVATE-BODY-20261031', 'utf8')
-  const req = { url: '/api/soul/diary/private?date=2026-10-31', socket: { remoteAddress: '127.0.0.1' } }
-
-  const off = privateDiaryView(req, { diaryPrivateVisible: false })
-  ok(off.status === 403, 'diaryPrivateVisible=false 返回 403')
-  ok(off.payload.content === undefined && !JSON.stringify(off.payload).includes('PRIVATE-BODY'), 'diaryPrivateVisible=false 不返回正文')
-
-  const on = privateDiaryView(req, { diaryPrivateVisible: true })
-  ok(on.status === 200 && on.payload.content.includes('PRIVATE-BODY'), '开启后本机回环能读到私密正文')
-
-  const remote = privateDiaryView({ url: req.url, socket: { remoteAddress: '10.0.0.2' } }, { diaryPrivateVisible: true })
-  ok(remote.status === 403 && remote.payload.content === undefined, '开启后外部地址仍拒绝')
-
-  const badDate = privateDiaryView({ url: '/api/soul/diary/private?date=../x', socket: { remoteAddress: '127.0.0.1' } }, { diaryPrivateVisible: true })
-  ok(badDate.status === 400, '非法 date 拒绝（挡路径穿越）')
-
-  rmSync(file)
-}
-
 // ---------------------------------------------------------------------------
 console.log(`\n结果：${passed} 通过，${failed} 失败`)
 // ---------------------------------------------------------------------------
+mkdirSync(sandbox, { recursive: true })
 process.exitCode = failed === 0 ? 0 : 1

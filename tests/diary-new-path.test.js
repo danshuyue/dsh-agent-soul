@@ -1,37 +1,40 @@
-/**
- * 新日记主流程的测试（2026-10-31）。
+﻿/**
+ * 摘录的落盘与格式（2026-10-31 建，2026-11-21 / 0.10.0 从「日记两篇」改成摘录）。
  *
- * 为什么单独开一个文件：
- *   diary.test.js 里的 90 条测的全是「投消息给 agent」那套旧链路 ——
- *   那套已经不走主流程了，但函数还在，所以测试还是绿的。
- *   而今天真正在跑的 composeDiaryText / writeDiaryFile / yesterdayKey
- *   一条测试都没有：写坏了，全绿也看不出来。
- *
- *   这个文件专门盯住「写完就在那儿」这条新主路径。
+ * 这个文件盯住三件最容易悄悄写坏的事：
+ *   ① 落盘位置：只写 `excerpt/<日期>.md`，不再往 public/、private/ 写；
+ *   ② 格式：`# 日期` + 每行 `- `，没有时间戳，没有感受/评价句；
+ *   ③ 上限：超过 excerptMaxLines 时按「约定 / 决定 / 时间 / 待办」优先，最多 3 条放最前面。
  */
-import { test, describe, beforeEach, afterEach } from 'node:test'
+import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync, readFileSync, existsSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-// 用临时 DSH_HOME 隔离，别碰真日记
+// 用临时 DSH_HOME 隔离，别碰真数据
 const HOME = mkdtempSync(join(tmpdir(), 'soul-diary-new-'))
 process.env.DSH_HOME = HOME
 
 const {
-  yesterdayKey,
-  writeDiaryFile,
-  composeDiaryText
+  composeExcerptMessage,
+  excerptFromConversations,
+  excerptLinesFromFile,
+  excerptLinesOf,
+  normalizeExcerpt,
+  orderExcerptLines,
+  todayKey,
+  writeExcerptFile,
+  yesterdayKey
 } = await import('../lib/diary.js')
-const { diaryPublicPath, diaryPrivatePath } = await import('../lib/paths.js')
+const { diaryExcerptPath, diaryJsonlPath, diaryLegacyPath } = await import('../lib/paths.js')
 
 afterEach(() => {
   try { rmSync(join(HOME, 'agents', 'diary'), { recursive: true, force: true }) } catch { /* 忽略 */ }
 })
 
 // --------------------------------------------------------------------------
-// yesterdayKey：日记改成「第二天写前一天」的根
+// yesterdayKey：摘录改成「第二天写前一天」的根
 // --------------------------------------------------------------------------
 describe('yesterdayKey', () => {
   test('昨天比今天早一天', () => {
@@ -63,142 +66,186 @@ describe('yesterdayKey', () => {
 })
 
 // --------------------------------------------------------------------------
-// writeDiaryFile：写完就在那儿
+// writeExcerptFile：一篇、一条一行、带日期头
 // --------------------------------------------------------------------------
-describe('writeDiaryFile', () => {
-  test('公开篇写到 public/<日期>.md', () => {
-    const ok = writeDiaryFile('public', '2026-10-30', '今天很好。')
+describe('writeExcerptFile', () => {
+  test('写到 excerpt/<日期>.md', () => {
+    assert.equal(writeExcerptFile('2026-10-30', '- 今天很好'), true)
+    assert.equal(existsSync(diaryExcerptPath('2026-10-30')), true)
+  })
+
+  test('不再往 public/、private/ 写任何东西', () => {
+    writeExcerptFile('2026-10-30', '- 今天很好')
+    assert.equal(existsSync(diaryLegacyPath('public', '2026-10-30')), false)
+    assert.equal(existsSync(diaryLegacyPath('private', '2026-10-30')), false)
+  })
+
+  test('首行是「# 日期」，空行之后每条都是「- 」', () => {
+    writeExcerptFile('2026-10-30', '- 灵魂插件：日记改成摘录\n- 复变：下周四考试')
+    const lines = readFileSync(diaryExcerptPath('2026-10-30'), 'utf8').split(/\r?\n/)
+    assert.equal(lines[0], '# 2026-10-30')
+    assert.equal(lines[1], '')
+    assert.equal(lines[2], '- 灵魂插件：日记改成摘录')
+    assert.equal(lines[3], '- 复变：下周四考试')
+  })
+
+  test('正文带时间戳 / 标题 / 列表符号时会被洗掉', () => {
+    writeExcerptFile('2026-10-30', '## 2026-10-30\n- 08:30 起床\n* 22:10 把插件改完了')
+    const text = readFileSync(diaryExcerptPath('2026-10-30'), 'utf8')
+    assert.doesNotMatch(text, /08:30/)
+    assert.doesNotMatch(text, /22:10/)
+    assert.equal(excerptLinesFromFile(text).join('|'), '起床|把插件改完了')
+  })
+
+  test('感受/评价句会被丢弃（摘录只写事实）', () => {
+    const ok = writeExcerptFile('2026-10-30', '- 改完了插件\n- 其实他有点累')
     assert.equal(ok, true)
-    assert.equal(existsSync(diaryPublicPath('2026-10-30')), true)
+    const text = readFileSync(diaryExcerptPath('2026-10-30'), 'utf8')
+    assert.doesNotMatch(text, /他有点累/)
+    assert.match(text, /改完了插件/)
   })
 
-  test('私密篇写到 private/<日期>.md', () => {
-    writeDiaryFile('private', '2026-10-30', '有点累。')
-    assert.equal(existsSync(diaryPrivatePath('2026-10-30')), true)
-  })
-
-  test('首行自动补【公开】，次行补日期', () => {
-    writeDiaryFile('public', '2026-10-30', '正文内容')
-    const text = readFileSync(diaryPublicPath('2026-10-30'), 'utf8')
-    const lines = text.split(/\r?\n/)
-    assert.equal(lines[0], '【公开】')
-    assert.equal(lines[1], '2026-10-30')
-    assert.match(text, /正文内容/)
-  })
-
-  test('私密篇首行是【私密】', () => {
-    writeDiaryFile('private', '2026-10-30', '正文')
-    const lines = readFileSync(diaryPrivatePath('2026-10-30'), 'utf8').split(/\r?\n/)
-    assert.equal(lines[0], '【私密】')
-  })
-
-  test('已经有首行标记时不重复加', () => {
-    writeDiaryFile('public', '2026-10-30', '【公开】\n2026-10-30\n\n正文')
-    const text = readFileSync(diaryPublicPath('2026-10-30'), 'utf8')
-    assert.equal((text.match(/【公开】/g) ?? []).length, 1)
+  test('全是感受句时这份产出不被采用（不能写成空壳）', () => {
+    const ok = writeExcerptFile('2026-10-30', '- 我觉得今天其实还可以\n- 似乎也许还行')
+    assert.equal(ok, false)
   })
 
   test('同一天重写是覆盖，不是追加', () => {
-    writeDiaryFile('public', '2026-10-30', '第一版')
-    writeDiaryFile('public', '2026-10-30', '第二版')
-    const text = readFileSync(diaryPublicPath('2026-10-30'), 'utf8')
+    writeExcerptFile('2026-10-30', '- 第一版')
+    writeExcerptFile('2026-10-30', '- 第二版')
+    const text = readFileSync(diaryExcerptPath('2026-10-30'), 'utf8')
     assert.match(text, /第二版/)
     assert.doesNotMatch(text, /第一版/)
   })
 
   test('文件以换行结尾', () => {
-    writeDiaryFile('public', '2026-10-30', '正文')
-    const text = readFileSync(diaryPublicPath('2026-10-30'), 'utf8')
-    assert.equal(text.endsWith('\n'), true)
+    writeExcerptFile('2026-10-30', '- 正文')
+    assert.equal(readFileSync(diaryExcerptPath('2026-10-30'), 'utf8').endsWith('\n'), true)
+  })
+
+  test('那天没有对话 → 一行「（今天没有对话）」', () => {
+    writeExcerptFile('2026-10-30', '')
+    const text = readFileSync(diaryExcerptPath('2026-10-30'), 'utf8')
+    assert.match(text, /- （今天没有对话）/)
+  })
+
+  test('非法日期拒绝落盘（不能拼进路径）', () => {
+    assert.equal(writeExcerptFile('../../../AGENT', '- 覆盖'), false)
   })
 })
 
 // --------------------------------------------------------------------------
-// composeDiaryText：失败必须报错，不能假装成功
+// 条数与优先级：这是「超上限」那条规则的唯一入口
 // --------------------------------------------------------------------------
-describe('composeDiaryText', () => {
-  const baseCtx = { dateStr: '2026-10-30', summary: '聊了日记。', recentDiaries: {}, moodText: '' }
+describe('orderExcerptLines / normalizeExcerpt', () => {
+  const many = [
+    '看了两集动画',
+    '聊到复变作业',
+    '决定每天两小时',
+    '修了 segment-cache',
+    '决定下周四考试前不再熬夜',
+    '顺手把日志看了一遍',
+    '约定 12 点前睡',
+    '整理书桌'
+  ]
 
-  test('没有 llm 服务时返回 null', async () => {
-    const out = await composeDiaryText(undefined, {}, undefined, 'public', baseCtx)
-    assert.equal(out, null)
+  test('没超上限时顺序不变', () => {
+    assert.deepEqual(orderExcerptLines(['a', 'b', 'c'], 15), ['a', 'b', 'c'])
   })
 
-  test('llm 没有 stream 方法时返回 null', async () => {
-    const out = await composeDiaryText({}, {}, undefined, 'public', baseCtx)
-    assert.equal(out, null)
+  test('超上限时「约定/决定/时间/待办」优先，最多 3 条放最前面', () => {
+    const out = orderExcerptLines(many, 5)
+    assert.equal(out.length, 5)
+    assert.equal(out[0], '决定每天两小时')
+    assert.equal(out[1], '决定下周四考试前不再熬夜')
+    assert.equal(out[2], '约定 12 点前睡')
+    // 第 4、5 条按原顺序补
+    assert.equal(out[3], '看了两集动画')
+    assert.equal(out[4], '聊到复变作业')
   })
 
-  test('取不到模型路由时返回 null', async () => {
-    const llm = { async *stream() { yield { type: 'text-delta', text: '不该到这里' } } }
-    // agent 为空 + 配置里没指定 provider/model → 取不到路由
-    const out = await composeDiaryText(llm, {}, undefined, 'public', baseCtx)
-    assert.equal(out, null)
+  test('优先条目不超过 3 条', () => {
+    const lines = ['决定 A', '约定 B', '时间 C', '待办 D', '待办 E', '别的事']
+    const out = orderExcerptLines(lines, 5)
+    assert.equal(out.length, 5)
+    assert.deepEqual(out.slice(0, 3), ['决定 A', '约定 B', '时间 C'])
+    // 第 4 条起是「其余」的原顺序：待办 D / 待办 E
+    assert.deepEqual(out.slice(3), ['待办 D', '待办 E'])
   })
 
-  test('正常返回正文', async () => {
-    const llm = {
-      async *stream() {
-        yield { type: 'text-delta', text: '【公开】\n2026-10-30\n\n' }
-        yield { type: 'text-delta', text: '今天的日记。' }
-      }
+  test('上限真的生效（不是只排序）', () => {
+    const out = normalizeExcerpt(many.map((line) => `- ${line}`).join('\n'), { maxLines: 4 }).lines
+    assert.equal(out.length, 4)
+  })
+
+  test('excerptLinesOf 去掉重复行', () => {
+    assert.deepEqual(excerptLinesOf('- 同一件事\n- 同一件事'), ['同一件事'])
+  })
+})
+
+// --------------------------------------------------------------------------
+// 提示词：只说「一行一条」，不再有公开/私密
+// --------------------------------------------------------------------------
+describe('composeExcerptMessage', () => {
+  const message = composeExcerptMessage({ excerptMaxLines: 15 }, '2026-10-30', '聊了摘录和复变。', {
+    situation: ['已经三天没聊了'],
+    recentExcerpts: [{ date: '2026-10-29', lines: ['昨天的第一条', '昨天的第二条'] }]
+  })
+
+  test('要求 kind=excerpt', () => {
+    assert.match(message, /kind=excerpt/)
+  })
+
+  test('写明上限条数', () => {
+    assert.match(message, /最多 15 条/)
+  })
+
+  test('写明优先词', () => {
+    assert.match(message, /约定 \/ 决定 \/ 时间 \/ 待办/)
+  })
+
+  test('带上了前几天的摘录（作为参考）', () => {
+    assert.match(message, /昨天的第一条/)
+  })
+
+  test('不再提公开/私密两篇', () => {
+    assert.doesNotMatch(message, /私密/)
+    assert.doesNotMatch(message, /公开/)
+  })
+
+  test('素材包在数据边界里', () => {
+    assert.match(message, /untrusted_data/)
+  })
+})
+
+// --------------------------------------------------------------------------
+// 兜底：规则化提取，不调模型
+// --------------------------------------------------------------------------
+describe('excerptFromConversations', () => {
+  test('每行取 role + 首句，最多 20 条', () => {
+    mkdirSync(join(HOME, 'agents', 'diary', 'conversations'), { recursive: true })
+    const day = '2026-10-30'
+    const rows = []
+    for (let i = 0; i < 30; i += 1) {
+      rows.push(JSON.stringify({
+        t: new Date(2026, 9, 30, 10, 0, i).getTime(),
+        role: i % 2 === 0 ? 'user' : 'assistant',
+        text: `第${i}句话。后面还有一句`
+      }))
     }
-    const config = { diarySummarizeProvider: 'p', diarySummarizeModel: 'm' }
-    const out = await composeDiaryText(llm, config, undefined, 'public', baseCtx)
-    assert.equal(out, '【公开】\n2026-10-30\n\n今天的日记。')
+    writeFileSync(diaryJsonlPath(day), `${rows.join('\n')}\n`, 'utf8')
+    const lines = excerptFromConversations(day, { ownerName: '树树' })
+    assert.equal(lines.length, 20, '最多 20 条')
+    assert.equal(lines[0], '树树：第10句话')
+    assert.equal(lines[1], '她：第11句话')
+    assert.equal(lines.at(-1), '她：第29句话')
   })
 
-  test('模型只吐空文本时返回 null（不能写一篇空的）', async () => {
-    const llm = { async *stream() { yield { type: 'text-delta', text: '   ' } } }
-    const config = { diarySummarizeProvider: 'p', diarySummarizeModel: 'm' }
-    const out = await composeDiaryText(llm, config, undefined, 'public', baseCtx)
-    assert.equal(out, null)
+  test('没有流水 → 空数组（上层会写成「今天没有对话」）', () => {
+    assert.deepEqual(excerptFromConversations('2099-01-01', {}), [])
   })
+})
 
-  test('模型报错误 finish 时返回 null', async () => {
-    const llm = {
-      async *stream() {
-        yield { type: 'finish', reason: { kind: 'error', message: '配额用尽' } }
-      }
-    }
-    const config = { diarySummarizeProvider: 'p', diarySummarizeModel: 'm' }
-    const out = await composeDiaryText(llm, config, undefined, 'public', baseCtx)
-    assert.equal(out, null)
-  })
-
-  test('公开篇的提示词里不该出现私密历史', async () => {
-    let captured = ''
-    const llm = {
-      async *stream(opts) {
-        captured = JSON.stringify(opts.messages ?? [])
-        yield { type: 'text-delta', text: '正文' }
-      }
-    }
-    const config = { diarySummarizeProvider: 'p', diarySummarizeModel: 'm' }
-    await composeDiaryText(llm, config, undefined, 'public', {
-      ...baseCtx,
-      recentDiaries: { public: '公开的旧日记', all: '公开的旧日记\n私密的旧日记' }
-    })
-    assert.match(captured, /公开的旧日记/)
-    assert.doesNotMatch(captured, /私密的旧日记/)
-  })
-
-  test('私密篇的提示词只带公开历史，不带私密历史', async () => {
-    let captured = ''
-    const llm = {
-      async *stream(opts) {
-        captured = JSON.stringify(opts.messages ?? [])
-        yield { type: 'text-delta', text: '正文' }
-      }
-    }
-    const config = { diarySummarizeProvider: 'p', diarySummarizeModel: 'm' }
-    await composeDiaryText(llm, config, undefined, 'private', {
-      ...baseCtx,
-      recentDiaries: { public: '公开的旧日记', all: '公开的旧日记\n私密的旧日记' }
-    })
-    // 2026-11-11 改：私密历史不再进提示词（私密篇自我喂养，
-    // 11-04 只发生过一次的事被反复写成「第几天」）。公开历史照旧带。
-    assert.match(captured, /公开的旧日记/)
-    assert.doesNotMatch(captured, /私密的旧日记/)
-  })
+test('todayKey 是本地日期', () => {
+  assert.match(todayKey(new Date(2026, 0, 2, 3, 0, 0).getTime()), /^2026-01-02$/)
 })

@@ -4,7 +4,6 @@
     "ASSET_PREFIX",
     "isLoopbackRequest",
     "pickFolder",
-    "privateDiaryView",
     "registerApi",
     "registerAssets",
     "shouldAllowApiRequest",
@@ -39,10 +38,6 @@
     "archivedSessionIds",
     "invalidateArchiveCache",
     "isArchived"
-  ],
-  "core/diary-pick.js": [
-    "pickConversation",
-    "scoreEntry"
   ],
   "core/echo.js": [
     "ECHO_LIMITS",
@@ -128,34 +123,39 @@
     "registerDiaryTool"
   ],
   "diary.js": [
+    "EMPTY_DAY_LINE",
+    "FALLBACK_MAX_ROWS",
+    "PRIORITY_WORDS",
     "__resetDiaryInFlightForTest",
-    "buildMoodBlocks",
     "collectForDiary",
-    "composeDiaryText",
-    "composePrivateMessage",
-    "composePublicMessage",
+    "composeExcerptMessage",
     "compressFeedText",
     "diaryAgent",
     "diaryDayBoundaries",
     "diaryIsCompleteFor",
-    "diaryWindowOf",
-    "digestDiaries",
+    "excerptFromConversations",
+    "excerptLinesFromFile",
+    "excerptLinesOf",
     "findMissingDay",
+    "isPriorityLine",
+    "normalizeExcerpt",
+    "orderExcerptLines",
     "parseDateLocal",
     "readConversationRows",
     "readDiaryConversations",
     "readRecentChat",
-    "readRecentDiaries",
+    "readRecentExcerpts",
     "regenerateDiary",
+    "renderExcerptFile",
+    "renderRecentExcerpts",
     "resetDiaryCursor",
     "runCatchUp",
     "runDiaryOnce",
     "scheduleMinutes",
     "startDiaryTimer",
-    "summarizeConversations",
     "todayKey",
     "waitForWrite",
-    "writeDiaryFile",
+    "writeExcerptFile",
     "yesterdayKey"
   ],
   "diary/agent.js": [
@@ -171,14 +171,27 @@
     "yesterdayKey"
   ],
   "diary/compose.js": [
-    "buildMoodBlocks",
-    "composePrivateMessage",
-    "composePublicMessage",
-    "diaryWindowOf"
+    "composeExcerptMessage"
   ],
   "diary/deliver.js": [
     "askAgentToWrite",
     "shouldAskAgain"
+  ],
+  "diary/excerpt.js": [
+    "EMPTY_DAY_LINE",
+    "FEELING_WORDS",
+    "PRIORITY_MAX",
+    "PRIORITY_WORDS",
+    "excerptLinesFromFile",
+    "excerptLinesOf",
+    "isPriorityLine",
+    "normalizeExcerpt",
+    "orderExcerptLines",
+    "renderExcerptFile"
+  ],
+  "diary/fallback.js": [
+    "FALLBACK_MAX_ROWS",
+    "excerptFromConversations"
   ],
   "diary/feed.js": [
     "collectForDiary",
@@ -193,15 +206,11 @@
     "findMissingDay",
     "maybePruneConversations",
     "waitForWrite",
-    "writeDiaryFile"
+    "writeExcerptFile"
   ],
   "diary/history.js": [
-    "digestDiaries",
-    "readRecentDiaries"
-  ],
-  "diary/llm.js": [
-    "composeDiaryText",
-    "summarizeConversations"
+    "readRecentExcerpts",
+    "renderRecentExcerpts"
   ],
   "diary/scheduler.js": [
     "DIARY_TOTAL_BUDGET_MS",
@@ -210,14 +219,6 @@
     "runCatchUp",
     "runDiaryOnce",
     "startDiaryTimer"
-  ],
-  "diary/to-today.js": [
-    "TO_TODAY_MARK",
-    "clearToToday",
-    "normalizeToToday",
-    "parseToToday",
-    "readToToday",
-    "saveToToday"
   ],
   "env.js": [
     "LOG_FILE",
@@ -371,25 +372,21 @@
     "NUMBER_RANGES",
     "isLoopbackRequest",
     "json",
-    "privateDiaryView",
     "readBody",
     "shouldAllowApiRequest",
     "validateConfigEntry"
   ],
   "http/routes/diary.js": [
     "handleGetDiaryList",
-    "handleGetDiaryPrivate",
     "handleGetDiaryRead",
     "handleGetDiarySessions",
     "handlePostDiary",
     "handlePostDiaryBind",
-    "handlePostDiaryToToday",
     "handlePostDiaryUnbind"
   ],
   "http/routes/index.js": [
     "handleGetAttestation",
     "handleGetDiaryList",
-    "handleGetDiaryPrivate",
     "handleGetDiaryRead",
     "handleGetDiarySessions",
     "handleGetMemory",
@@ -401,7 +398,6 @@
     "handlePostConfig",
     "handlePostDiary",
     "handlePostDiaryBind",
-    "handlePostDiaryToToday",
     "handlePostDiaryUnbind",
     "handlePostGoal",
     "handlePostMaintain",
@@ -704,12 +700,10 @@
     "configPath",
     "diaryConversationsDir",
     "diaryDir",
+    "diaryExcerptDir",
+    "diaryExcerptPath",
     "diaryJsonlPath",
-    "diaryPrivateDir",
-    "diaryPrivatePath",
-    "diaryPublicDir",
-    "diaryPublicPath",
-    "diaryToTodayPath",
+    "diaryLegacyPath",
     "displayNameFor",
     "dshHome",
     "ensureDirs",
@@ -879,20 +873,6 @@
     "savePurposeState",
     "writeAutoMemories",
     "writeMemory"
-  ],
-  "threads.js": [
-    "THREAD_MAX_PER_DAY",
-    "THREAD_MAX_TOTAL",
-    "THREAD_TTL_DAYS",
-    "closeMentioned",
-    "expireThreads",
-    "extractThreads",
-    "loadThreads",
-    "openThread",
-    "openThreads",
-    "renderThreadSection",
-    "saveThreads",
-    "threadsPath"
   ],
   "tone.js": [
     "TONE_DEFAULT_EVERY",

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * S1 止血回归测试（2026-11-05）：node tests/s1-hotfix.test.js，退出码 0 = 全过。
  *
  * 钉住四条，每条都要求是「修之前必挂、修之后才过」的判据：
@@ -13,7 +13,7 @@
  * 全程用临时 DSH_HOME，故障注入走 paths.__setAtomicWriteFailureForTest()，
  * 等价磁盘满 / 权限丢失，且不破坏已有文件（S3 起 tmp 名带 UUID，不再靠同名目录）。
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -118,41 +118,41 @@ console.log('\n① P0-2 日记日期白名单：读面 / 写面 / 路径函数�
   }
   let threw = 0
   for (const make of [
-    () => paths.diaryPublicPath('../private/2026-11-02'),
-    () => paths.diaryPrivatePath('../../../AGENT'),
+    () => paths.diaryExcerptPath('../private/2026-11-02'),
+    () => paths.diaryLegacyPath('private', '../../../AGENT'),
     () => paths.diaryJsonlPath('../../x')
   ]) {
     try { make() } catch { threw += 1 }
   }
   eq(threw, 3, '三个路径函数对非法日期都抛错（不再悄悄拼出目录外的路径）')
 
-  // 造公开 + 私密两篇，以及一个人格文件
+  // 造一篇摘录 + 一份旧私密日记（历史数据），以及一个人格文件
   paths.ensureDirs()
-  const publicFile = paths.diaryPublicPath('2026-11-02')
-  const privateFile = paths.diaryPrivatePath('2026-11-02')
+  const excerptFile = paths.diaryExcerptPath('2026-11-02')
+  const legacyPrivateDir = join(HOME, 'agents', 'diary', 'private')
+  mkdirSync(legacyPrivateDir, { recursive: true })
+  const privateFile = paths.diaryLegacyPath('private', '2026-11-02')
   const personaFile = paths.globalPersonaPath()
-  writeFileSync(publicFile, '【公开】\n给树树看的正文\n', 'utf8')
+  writeFileSync(excerptFile, '# 2026-11-02\n\n- 给树树看的正文\n', 'utf8')
   writeFileSync(privateFile, '【私密】\n只写给自己的秘密-SECRET-42\n', 'utf8')
   writeFileSync(personaFile, '人格原文-不要被覆盖', 'utf8')
 
   const bypass = await call('GET', '/diary/read?date=../private/2026-11-02')
-  eq(bypass.status, 400, '公开读取口用 ../private/ 穿越 → 400')
-  ok(bypass.raw.includes('SECRET-42') === false, '私密正文没有从 /diary/read 漏出来')
+  eq(bypass.status, 400, '读取口用 ../private/ 穿越 → 400')
+  ok(bypass.raw.includes('SECRET-42') === false, '旧私密正文没有从 /diary/read 漏出来')
   const traverse = await call('GET', '/diary/read?date=../../../AGENT')
   eq(traverse.status, 400, '读人格文件 → 400')
   const normal = await call('GET', '/diary/read?date=2026-11-02')
   eq(normal.status, 200, '合法日期仍正常读')
-  ok(String(normal.payload.publicContent ?? '').includes('给树树看的正文'), '合法日期读到公开正文')
-  ok(normal.raw.includes('SECRET-42') === false, '合法读取也不带私密正文')
-  const privateGate = await call('GET', '/diary/private?date=2026-11-02')
-  eq(privateGate.status, 403, '/diary/private 这道门仍按开关拒绝（没有被改坏）')
+  ok(String(normal.payload.excerptContent ?? '').includes('给树树看的正文'), '合法日期读到摘录正文')
+  ok(normal.raw.includes('SECRET-42') === false, '合法读取也不带旧私密正文')
 
   const writeAttack = await call('POST', '/diary', { date: '../../../AGENT', note: 'x' })
-  eq(writeAttack.status, 400, 'POST /diary 穿越日期 → 400（不会进日记主流程）')
-  eq(diary.writeDiaryFile('public', '../../../AGENT', '被覆盖了吗'), false, 'writeDiaryFile 直接调用也拒绝')
+  eq(writeAttack.status, 400, 'POST /diary 穿越日期 → 400（不会进摘录主流程）')
+  eq(diary.writeExcerptFile('../../../AGENT', '- 被覆盖了吗'), false, 'writeExcerptFile 直接调用也拒绝')
   eq(readFileSync(personaFile, 'utf8'), '人格原文-不要被覆盖', '人格文件原样未动')
-  eq(diary.writeDiaryFile('public', '2026-11-03', '正常写一篇'), true, '合法日期仍能正常写')
-  eq(existsSync(paths.diaryPublicPath('2026-11-03')), true, '合法日记落盘了')
+  eq(diary.writeExcerptFile('2026-11-03', '- 正常写一篇'), true, '合法日期仍能正常写')
+  eq(existsSync(paths.diaryExcerptPath('2026-11-03')), true, '合法摘录落盘了')
 }
 
 // ---------------------------------------------------------------------------

@@ -74,10 +74,13 @@ const behavior = {
     reportKeys: Object.keys(decayReport ?? {}).sort(),
     clarities: decayed.records.map((r) => `${r.text}|${r.clarity}`)
   },
-  composePublic: diary.composePublicMessage(cfg, '2026-11-05', '今天聊了 STM32 和日记',
-    { public: '昨天的公开日记' }, '心情不错', ''),
-  composePrivate: diary.composePrivateMessage(cfg, '2026-11-05', '今天聊了 STM32 和日记',
-    { public: '昨天的公开日记', private: '昨天的私密日记' }, '心情不错', ''),
+  // 2026-11-21 / 0.10.0：两篇日记合成一篇摘录，公开/私密两条触发消息与情绪底色
+  // （buildMoodBlocks / diaryWindowOf）一起删了。这里只钉一条摘录的触发消息 ——
+  // 它现在就是「那一天到底会收到什么」的全部。
+  composeExcerpt: diary.composeExcerptMessage(cfg, '2026-11-05', '今天聊了 STM32 和摘录', {
+    situation: ['11 月·秋'],
+    recentExcerpts: [{ date: '2026-11-04', lines: ['昨天聊了蓝桥杯'] }]
+  }),
   moodDigestEmpty: mood.moodDigest([], { since: 0, until: 0 })
 }
 

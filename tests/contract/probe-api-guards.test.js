@@ -42,15 +42,17 @@ const PUBLIC = 'PUBLIC_ONLY_POC'
 try {
   mkdirSync(join(HOME, 'agents', 'diary', 'public'), { recursive: true })
   mkdirSync(join(HOME, 'agents', 'diary', 'private'), { recursive: true })
+  mkdirSync(join(HOME, 'agents', 'diary', 'excerpt'), { recursive: true })
   writeFileSync(join(HOME, 'AGENT.md'), PERSONA, 'utf8')
   writeFileSync(join(HOME, 'agents', 'diary', 'private', '2026-11-02.md'), PRIVATE, 'utf8')
   writeFileSync(join(HOME, 'agents', 'diary', 'public', '2026-11-02.md'), PUBLIC, 'utf8')
+  writeFileSync(join(HOME, 'agents', 'diary', 'excerpt', '2026-11-02.md'), `# 2026-11-02\n\n- ${PUBLIC}\n`, 'utf8')
 
   const api = await imp('api.js')
   const store = await imp('store.js')
   const { normalizeConfig } = await imp('memory.js')
-  const { diaryPublicPath, diaryPrivatePath } = await imp('paths.js')
-  const { writeDiaryFile } = await imp('diary.js')
+  const { diaryExcerptPath, diaryLegacyPath } = await imp('paths.js')
+  const { writeExcerptFile } = await imp('diary.js')
 
   let handler = null
   api.registerApi({ webServer: { register: (opt) => { handler = opt.handler; return () => {} } } })
@@ -73,44 +75,38 @@ try {
 
   console.log('\n① 日期白名单（P0-2）')
   for (const [label, fn, arg] of [
-    ['diaryPublicPath("../private/2026-11-02")', diaryPublicPath, '../private/2026-11-02'],
-    ['diaryPublicPath("../../../AGENT")', diaryPublicPath, '../../../AGENT'],
-    ['diaryPrivatePath("../public/2026-11-02")', diaryPrivatePath, '../public/2026-11-02']
+    ['diaryExcerptPath("../private/2026-11-02")', diaryExcerptPath, '../private/2026-11-02'],
+    ['diaryExcerptPath("../../../AGENT")', diaryExcerptPath, '../../../AGENT'],
+    ['diaryLegacyPath("private", "../public/2026-11-02")', (key) => diaryLegacyPath('private', key), '../public/2026-11-02']
   ]) {
     let threw = false
     try { fn(arg) } catch { threw = true }
     ok(threw, `${label} 被路径层断言拒绝`)
   }
-  ok(diaryPublicPath('2026-11-02').endsWith('2026-11-02.md'), '合法日期仍能正常拼路径（白名单不误伤）')
+  ok(diaryExcerptPath('2026-11-02').endsWith('2026-11-02.md'), '合法日期仍能正常拼路径（白名单不误伤）')
 
-  console.log('\n② /diary/read 不能读穿私密日记与任意 .md')
+  console.log('\n② /diary/read 不能读穿旧私密日记与任意 .md')
   const rPrivate = await call('GET', '/api/soul/diary/private?date=2026-11-02')
-  eq(rPrivate.code, 403, '/diary/private 默认 403（默认 diaryPrivateVisible=false）')
-  ok(!String(rPrivate.text).includes('PRIVATE_SECRET_POC'), '默认门不回显私密正文')
-
-  const opened = api.privateDiaryView(
-    { url: '/api/soul/diary/private?date=2026-11-02', socket: { remoteAddress: '127.0.0.1' } },
-    { diaryPrivateVisible: true }
-  )
-  eq(opened.status, 200, '显式打开开关后 /diary/private 这道门本身可用')
-  ok(String(opened.payload?.content).includes('PRIVATE_SECRET_POC'), '开关打开时确实能读到私密正文（门有效）')
+  eq(rPrivate.code, 404, '/diary/private 路由已删（0.10.0：没有私密篇了）')
+  ok(!String(rPrivate.text).includes('PRIVATE_SECRET_POC'), '路由不存在也不回显私密正文')
 
   const rBypass = await call('GET', '/api/soul/diary/read?date=' + encodeURIComponent('../private/2026-11-02'))
-  eq(rBypass.code, 400, '★ /diary/read 用 ../private/日期 绕过开关 → 400')
-  ok(!String(rBypass.text).includes('PRIVATE_SECRET_POC'), '★ 响应里没有私密日记正文')
+  eq(rBypass.code, 400, '★ /diary/read 用 ../private/日期 绕过 → 400')
+  ok(!String(rBypass.text).includes('PRIVATE_SECRET_POC'), '★ 响应里没有旧私密正文')
   const rEscape = await call('GET', '/api/soul/diary/read?date=' + encodeURIComponent('../../../AGENT'))
   eq(rEscape.code, 400, '/diary/read 读任意 .md → 400')
   ok(!String(rEscape.text).includes(PERSONA), '响应里没有 AGENT.md 原文')
   const rValid = await call('GET', '/api/soul/diary/read?date=2026-11-02')
-  eq(rValid.code, 200, '合法日期的公开日记仍可读')
-  ok(String(rValid.text).includes(PUBLIC), '合法读取能拿到公开正文')
+  eq(rValid.code, 200, '合法日期的摘录仍可读')
+  ok(String(rValid.text).includes(PUBLIC), '合法读取能拿到摘录正文')
+  ok(!String(rValid.text).includes('PRIVATE_SECRET_POC'), '旧私密正文不在合法响应里')
 
   console.log('\n③ 写面：不能覆盖人格文件 / 任意位置新建 .md')
-  eq(writeDiaryFile('public', '../../../AGENT', 'POC 覆盖了人格'), false, '非法日期写日记返回 false')
+  eq(writeExcerptFile('../../../AGENT', 'POC 覆盖了人格'), false, '非法日期写摘录返回 false')
   ok(readFileSync(join(HOME, 'AGENT.md'), 'utf8').includes(PERSONA), 'AGENT.md 原文未被覆盖')
-  eq(writeDiaryFile('public', '../../../poc-new-note', '任意路径新建'), false, '任意位置新建 .md 被拒绝')
+  eq(writeExcerptFile('../../../poc-new-note', '任意路径新建'), false, '任意位置新建 .md 被拒绝')
   ok(!existsSync(join(HOME, 'poc-new-note.md')), '没有越界文件被创建')
-  eq(writeDiaryFile('public', '2026-11-03', '合法的另一天'), true, '合法日期可以正常写（白名单不误伤写面）')
+  eq(writeExcerptFile('2026-11-03', '- 合法的另一天'), true, '合法日期可以正常写（白名单不误伤写面）')
 
   console.log('\n④ /config 不能通过 HTTP 放宽回环边界（P0-1 止血）')
   store.saveConfig({ apiLoopbackOnly: true })

@@ -28,13 +28,13 @@ let failed = 0
 const ok = (c, n) => { if (c) { passed += 1; console.log(`  ✓ ${n}`) } else { failed += 1; console.error(`  ✗ ${n}`) } }
 const eq = (a, e, n) => ok(JSON.stringify(a) === JSON.stringify(e), `${n}${JSON.stringify(a) === JSON.stringify(e) ? '' : `（实际 ${JSON.stringify(a)}，期望 ${JSON.stringify(e)}）`}`)
 
-const { ensureDirs, diaryPublicPath, diaryPrivatePath } = await imp('paths.js')
+const { ensureDirs, diaryExcerptPath } = await imp('paths.js')
 ensureDirs()
 const diary = await imp('diary.js')
 // shouldAskAgain 现住 scheduler.js；#27/#26 拆分后迁往 diary/deliver.js（届时只改这一行 import）
 const { shouldAskAgain } = await imp('diary/deliver.js')
 const { runDiaryOnce } = diary
-const { writeDiaryFile } = await imp('diary/files.js')
+const { writeExcerptFile } = await imp('diary/files.js')
 const store = await imp('store.js')
 
 // ---------------------------------------------------------------------------
@@ -55,14 +55,13 @@ console.log('① shouldAskAgain 判定矩阵')
 }
 
 // ---------------------------------------------------------------------------
-console.log('② since 语义端到端：文件在但比 since 旧 → 重新找她写（不走兜底生成）')
+console.log('② since 语义端到端：文件在但比 since 旧 → 重新找她写（不走兜底）')
 // ---------------------------------------------------------------------------
 {
   const date = '2026-11-01'
-  // 先「写好」两篇（mtime = 现在）
-  writeDiaryFile('public', date, '下午手动补的半成品公开日记')
-  writeDiaryFile('private', date, '下午手动补的半成品私密日记')
-  store.saveConfig({ diarySessionId: 'sess-r17', diaryAgentWrite: true, diaryAgentTimeoutMs: 600 })
+  // 先「写好」那一篇（mtime = 现在）—— 模拟下午手动补的半成品
+  writeExcerptFile(date, '- 下午手动补的半成品')
+  store.saveConfig({ excerptSessionId: 'sess-r17', diaryAgentWrite: true, diaryAgentTimeoutMs: 600 })
 
   const asked = []
   const fakeAgent = {
@@ -70,8 +69,7 @@ console.log('② since 语义端到端：文件在但比 since 旧 → 重新找
       asked.push(String(message?.source?.kind ?? ''))
       const text = String(message?.content?.[0]?.text ?? '')
       // 收到消息后同步重写文件（mtime 变新 → waitForWrite 立即认）
-      if (text.includes('kind=public')) writeDiaryFile('public', date, '她重写的公开日记')
-      else if (text.includes('kind=private')) writeDiaryFile('private', date, '她重写的私密日记')
+      if (text.includes('kind=excerpt')) writeExcerptFile(date, '- 她重写的摘录')
     }
   }
   const ctx = {
@@ -83,10 +81,10 @@ console.log('② since 语义端到端：文件在但比 since 旧 → 重新找
   const since = Date.now() + 5000
   const done = await runDiaryOnce(ctx, date, undefined, { since })
   eq(done, true, '整体成功')
-  eq(asked.length, 2, '两篇都被重新投递（旧文件不被当成「她写好了」——P1-D3 死循环的判据）')
+  eq(asked.length, 1, '摘录被重新投递（旧文件不被当成「她写好了」——P1-D3 死循环的判据）')
   eq(asked.every((k) => k === 'schedule'), true, '重投的 source.kind 仍是 schedule')
-  ok(existsSync(diaryPublicPath(date)), '公开篇文件在')
-  ok(readFileSync(diaryPrivatePath(date), 'utf8').includes('她重写的私密日记'), '私密篇是她重写的那版')
+  ok(existsSync(diaryExcerptPath(date)), '摘录文件在')
+  ok(readFileSync(diaryExcerptPath(date), 'utf8').includes('她重写的摘录'), '是她重写的那版')
 }
 
 console.log('')

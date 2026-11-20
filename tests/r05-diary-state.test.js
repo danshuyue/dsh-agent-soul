@@ -65,12 +65,10 @@ console.log('D4 · 判「最后说话时间」要扫整份，不是末尾 80 行
   }
   writeFileSync(paths.diaryJsonlPath(DATE), `${lines.join('\n')}\n`, 'utf8')
 
-  // 日记写在 02:00（早于「很晚的一句」）
+  // 摘录写在 02:00（早于「很晚的一句」）
   const writtenAt = start + 2 * 3600_000
-  for (const p of [paths.diaryPublicPath(DATE), paths.diaryPrivatePath(DATE)]) {
-    writeFileSync(p, '【公开】\n2026-11-05\n\n半成品正文\n', 'utf8')
-    setMtime(p, writtenAt)
-  }
+  writeFileSync(paths.diaryExcerptPath(DATE), `# ${DATE}\n\n- 半成品正文\n`, 'utf8')
+  setMtime(paths.diaryExcerptPath(DATE), writtenAt)
 
   eq(completion.diaryIsCompleteFor(DATE), false,
     '最后一句在末尾 80 行之外时仍判「不完整」（旧实现会误判完整）')
@@ -80,7 +78,7 @@ console.log('D4 · 判「最后说话时间」要扫整份，不是末尾 80 行
 console.log('D3 · 「文件在 = 她写好了」要加时间基线')
 // ---------------------------------------------------------------------------
 {
-  const pub = paths.diaryPublicPath(DATE)
+  const pub = paths.diaryExcerptPath(DATE)
   const old = start + 2 * 3600_000
   setMtime(pub, old)
 
@@ -104,24 +102,24 @@ console.log('D3 · 「文件在 = 她写好了」要加时间基线')
 console.log('D2 · 兜底写盘前要避让她刚写好的那份')
 // ---------------------------------------------------------------------------
 {
-  const pub = paths.diaryPublicPath(DATE)
-  const herText = '【公开】\n2026-11-05\n\n她自己已经写好的正文（不该被覆盖）\n'
+  const pub = paths.diaryExcerptPath(DATE)
+  const herText = `# ${DATE}\n\n- 她自己已经写好的正文（不该被覆盖）\n`
   writeFileSync(pub, herText, 'utf8')
   const herMtime = Date.now()
   setMtime(pub, herMtime)
 
   // 兜底基线比她的 mtime 早 → 说明她是在我们「问她」之后才落盘的 → 兜底必须让路
-  const skipped = files.writeDiaryFile('public', DATE, '插件兜底生成的正文', { skipIfNewerThan: herMtime - 5000 })
+  const skipped = files.writeExcerptFile(DATE, '- 插件兜底生成的正文', { skipIfNewerThan: herMtime - 5000 })
   eq(skipped, false, '兜底让路：返回 false（不是假装写成功）')
   eq(readFileSync(pub, 'utf8'), herText, '她的正文一个字都没被改')
 
   // 兜底基线比她的 mtime 晚（文件是上一轮留下的旧文件）→ 正常覆盖
-  const written = files.writeDiaryFile('public', DATE, '插件兜底生成的正文', { skipIfNewerThan: herMtime + 5000 })
+  const written = files.writeExcerptFile(DATE, '- 插件兜底生成的正文', { skipIfNewerThan: herMtime + 5000 })
   eq(written, true, '旧文件仍然可以被兜底覆盖（不把正常路径也堵死）')
   ok(readFileSync(pub, 'utf8').includes('插件兜底生成的正文'), '覆盖确实发生了')
 
   // 不带选项（老的调用方：diary-tool）→ 行为不变
-  const plain = files.writeDiaryFile('public', DATE, '第三个版本')
+  const plain = files.writeExcerptFile(DATE, '- 第三个版本')
   eq(plain, true, '不传 skipIfNewerThan 时行为不变')
   ok(readFileSync(pub, 'utf8').includes('第三个版本'), '老调用方照常覆盖')
 }
@@ -132,12 +130,12 @@ console.log('D2/D3 组合 · 「她要晚写」时启动流程不会把她覆盖
 {
   // 场景复刻：旧文件存在（下午的半成品）+ 本轮决定重写 + 她在兜底前落盘。
   // 这里只验证最后一步（兜底让路）不会毁掉她的产出 —— 启动流程整体在 r02-diary-budget 里跑过。
-  const pub = paths.diaryPublicPath(DATE)
-  const herLate = '【公开】\n2026-11-05\n\n她迟到写出的完整版\n'
+  const pub = paths.diaryExcerptPath(DATE)
+  const herLate = `# ${DATE}\n\n- 她迟到写出的完整版\n`
   writeFileSync(pub, herLate, 'utf8')
   const late = Date.now()
   setMtime(pub, late)
-  const okWrite = files.writeDiaryFile('public', DATE, '兜底版（不该出现）', { skipIfNewerThan: late - 1000 })
+  const okWrite = files.writeExcerptFile(DATE, '- 兜底版（不该出现）', { skipIfNewerThan: late - 1000 })
   eq(okWrite, false, '兜底被挡下')
   ok(!readFileSync(pub, 'utf8').includes('兜底版'), '盘上是她的版本')
 }

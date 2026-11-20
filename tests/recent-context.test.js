@@ -15,8 +15,8 @@ import { join } from 'node:path'
 const HOME = mkdtempSync(join(tmpdir(), 'soul-recent-'))
 process.env.DSH_HOME = HOME
 
-const { readRecentChat, readRecentDiaries, todayKey, digestDiaries, compressFeedText } = await import('../lib/diary.js')
-const { diaryJsonlPath, diaryPublicPath, diaryPrivatePath, ensureDirs } = await import('../lib/paths.js')
+const { readRecentChat, readRecentExcerpts, renderRecentExcerpts, todayKey, compressFeedText } = await import('../lib/diary.js')
+const { diaryJsonlPath, diaryExcerptPath, ensureDirs } = await import('../lib/paths.js')
 
 const TODAY = todayKey(Date.now())
 
@@ -120,42 +120,46 @@ describe('compressFeedText（长回复折叠）', () => {
   })
 })
 
-describe('digestDiaries（日记注入改摘要）', () => {
-  const entry = (date, body) => `【公开】\n${date}\n\n${body}\n`
-
-  test('每篇只留第一段，带日期和全文字数', () => {
-    const a = entry('2026-11-03', '今天最放不下的是复制件那段。\n\n第二段细节很多，不该进注入。')
-    const b = entry('2026-11-04', '今天最放不下的是树树往回退的那几步。\n\n第二段。')
-    const out = digestDiaries(`${a}\n\n---\n\n${b}`, 100)
-    const lines = out.split('\n')
-    assert.equal(lines.length, 2)
-    assert.match(lines[0], /^- 2026-11-03：今天最放不下的是复制件那段。/)
-    assert.doesNotMatch(out, /第二段/)
-    assert.match(out, /全文 \d+ 字/)
-  })
-
-  test('比原来整篇短一个量级', () => {
-    const long = `${'很长的正文。'.repeat(400)}\n\n第二段`
-    const out = digestDiaries(entry('2026-11-04', long), 120)
-    assert.equal(out.length < 200, true, `摘要应该很短，实际 ${out.length}`)
-  })
-})
-
-describe('readRecentDiaries（前几天的日记）', () => {
-  test('公开与全部分开返回', () => {
+describe('readRecentExcerpts / renderRecentExcerpts（前几天摘录的注入口径）', () => {
+  const writeExcerpt = (date, lines) => {
     ensureDirs()
-    const y1 = todayKey(Date.now() - 24 * 60 * 60 * 1000)
-    writeFileSync(diaryPublicPath(y1), '【公开】\n公开内容\n', 'utf8')
-    writeFileSync(diaryPrivatePath(y1), '【私密】\n私密内容\n', 'utf8')
-    const r = readRecentDiaries(TODAY, 3)
-    assert.match(r.public, /公开内容/)
-    assert.doesNotMatch(r.public, /私密内容/, 'public 不该含私密')
-    assert.match(r.all, /私密内容/)
+    writeFileSync(diaryExcerptPath(date), `# ${date}\n\n${lines.map((line) => `- ${line}`).join('\n')}\n`, 'utf8')
+  }
+  const dayAgo = (n) => todayKey(Date.now() - n * 24 * 60 * 60 * 1000)
+
+  test('按日期正序返回，最旧的在前', () => {
+    writeExcerpt(dayAgo(2), ['前天的事'])
+    writeExcerpt(dayAgo(1), ['昨天的事'])
+    const rows = readRecentExcerpts(TODAY, 3)
+    assert.equal(rows.length, 2)
+    assert.equal(rows[0].date, dayAgo(2))
+    assert.equal(rows[1].date, dayAgo(1))
+    assert.deepEqual(rows[1].lines, ['昨天的事'])
   })
 
-  test('没有日记时返回空串', () => {
-    const r = readRecentDiaries('2099-01-01', 3)
-    assert.equal(r.public, '')
-    assert.equal(r.all, '')
+  test('每篇最多 3 条（0.10.0 的注入上限）', () => {
+    writeExcerpt(dayAgo(1), ['一', '二', '三', '四', '五'])
+    const out = renderRecentExcerpts(readRecentExcerpts(TODAY, 3), { linesPerDay: 3 })
+    assert.equal(out.split('\n').filter((line) => line.startsWith('- ')).length, 3)
+    assert.doesNotMatch(out, /- 四/)
+  })
+
+  test('「今天没有对话」不占注入额度', () => {
+    writeExcerpt(dayAgo(1), ['（今天没有对话）'])
+    const out = renderRecentExcerpts(readRecentExcerpts(TODAY, 3), { linesPerDay: 3 })
+    assert.equal(out, '')
+  })
+
+  test('没有摘录时返回空', () => {
+    assert.deepEqual(readRecentExcerpts('2099-01-01', 3), [])
+    assert.equal(renderRecentExcerpts([], { linesPerDay: 3 }), '')
+  })
+
+  test('注入侧最多看最近 3 天（调用方封顶）', () => {
+    writeExcerpt(dayAgo(5), ['五天前'])
+    writeExcerpt(dayAgo(1), ['昨天'])
+    const rows = readRecentExcerpts(TODAY, 3)
+    assert.equal(rows.length, 1, '五天前那篇不该出现在最近 3 天里')
+    assert.equal(rows[0].date, dayAgo(1))
   })
 })

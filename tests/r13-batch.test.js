@@ -5,7 +5,7 @@
  *   #12 控制字符黑名单补 C1 区 + U+2028/2029（换行/制表仍放行）
  *   #13 mergeCards stats 补 decayed，lastDecayAt 取较新
  *   #14 补 id 的哈希掺 scope，跨卡同文本不同 scope 不再撞 id
- *   #16 diaryWindowOf 对 NaN 月/日显式返回空窗
+ *   #16 日窗口对 NaN 月/日显式返回空窗（原 diaryWindowOf，0.10.0 并入 diaryDayBoundaries）
  *   #19 moodDigest 跳过 kind==='decay' 的模板句
  *   #10 readBody 超限 reject 的错误带 status=413
  *   #17 日志轮转同分钟撞名时追加序号，两份归档都留得住
@@ -41,8 +41,8 @@ const middleware = await imp('http/middleware.js')
 const { validateConfigEntry } = middleware
 const card = await imp('memory/card.js')
 const { mergeCards, normalizeCard } = card
-const compose = await imp('diary/compose.js')
-const { diaryWindowOf } = compose
+const compose = await imp('diary/completion.js')
+const { diaryDayBoundaries } = compose
 const digest = await imp('mood/digest.js')
 const { moodDigest } = digest
 const env = await imp('env.js')
@@ -100,13 +100,15 @@ console.log('#14 · 补 id 的哈希掺 scope，跨卡同文本不再撞 id')
 }
 
 // ---------------------------------------------------------------------------
-console.log('#16 · diaryWindowOf 对 NaN 月/日返回空窗')
+console.log('#16 · 日窗口对 NaN 月/日返回空窗')
 // ---------------------------------------------------------------------------
-eq(diaryWindowOf('2026-xx-01'), { since: 0, until: 0 }, '坏月份 → 空窗（原来静默算成 1 月）')
-eq(diaryWindowOf('2026-11-8x'), { since: 0, until: 0 }, '坏日期 → 空窗')
+// 0.10.0：diaryWindowOf 随「情绪底色」一起删了，同样的窗口口径现在只在
+// diaryDayBoundaries 里（{ start, end }）。断言不变，只换函数与字段名。
+eq(diaryDayBoundaries('2026-xx-01', 0), { start: 0, end: 0 }, '坏月份 → 空窗（原来静默算成 1 月）')
+eq(diaryDayBoundaries('2026-11-8x', 0), { start: 0, end: 0 }, '坏日期 → 空窗')
 {
-  const good = diaryWindowOf('2026-11-08')
-  ok(good.until - good.since === 24 * 60 * 60 * 1000, '正常日期仍是 24 小时窗')
+  const good = diaryDayBoundaries('2026-11-08', 0)
+  ok(good.end - good.start === 24 * 60 * 60 * 1000, '正常日期仍是 24 小时窗')
 }
 
 // ---------------------------------------------------------------------------
@@ -215,7 +217,7 @@ console.log('#1 · 只读头部不能把 UTF-8 汉字切坏（复核补丁）')
   const completion = await imp('diary/completion.js')
   const diary = await imp('http/routes/diary.js')
   const dateStr = completion.todayKey(Date.now())
-  const file = paths.diaryPublicPath(dateStr)
+  const file = paths.diaryExcerptPath(dateStr)
   mkdirSync(dirname(file), { recursive: true })
   // 关键：让 400 字节边界**正好切在汉字中间**。
   // 纯中文正文：每字 3 字节，400 % 3 = 1 → 第 400 字节必是某个字的第一个字节。

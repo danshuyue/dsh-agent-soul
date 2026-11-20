@@ -5,7 +5,7 @@
  *   ① 同一天调两次只写一行（maintain 每回合都可能被摸到，不能刷屏）
  *   ② 跨天会再写一行（进程一直开着也不能漏）
  *   ③ 某一项取不到时整行仍然写出，那项是 `-`（不能因为统计失败就没有健康行）
- * 另外测一下各字段的数对不对：归档行数、笔记篇数、日记最近一天。
+ * 另外测一下各字段的数对不对：归档行数、笔记篇数、摘录最近一天。
  */
 import { test, describe, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
@@ -13,7 +13,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 
-import { ensureDirs, healthStatePath, archivePath, notesIndexPath, diaryPublicDir, diaryPrivateDir } from '../lib/paths.js'
+import { ensureDirs, healthStatePath, archivePath, notesIndexPath, diaryExcerptDir } from '../lib/paths.js'
 import { writeDailyHealth, renderHealthLine, __resetRefinePendingForTest } from '../lib/health.js'
 
 let HOME = ''
@@ -116,29 +116,26 @@ describe('每日健康一行', () => {
     assert.match(lines[0], /提炼队列 0/)
   })
 
-  test('各项数字取自真实文件：归档行数、笔记篇数、日记最近一天', () => {
+  test('各项数字取自真实文件：归档行数、笔记篇数、摘录最近一天', () => {
     setupHome()
     // 归档：3 行（最后一行故意不带换行，验证也数得进去）
     mkdirSync(dirname(archivePath()), { recursive: true })
     writeFileSync(archivePath(), '{"a":1}\n{"a":2}\n{"a":3}', 'utf8')
     // 笔记索引：2 篇
     writeFileSync(notesIndexPath(), JSON.stringify({ version: 1, notes: [{ slug: 'x' }, { slug: 'y' }] }), 'utf8')
-    // 日记：昨天那篇（窗口早过了，mtime 也很早 → 判为「缺」而不是「完整」）
-    mkdirSync(diaryPublicDir(), { recursive: true })
-    mkdirSync(diaryPrivateDir(), { recursive: true })
-    writeFileSync(join(diaryPublicDir(), '2026-11-02.md'), '公开', 'utf8')
-    writeFileSync(join(diaryPrivateDir(), '2026-11-02.md'), '私密', 'utf8')
+    // 摘录：那天那篇（窗口早过了，mtime 也很早 → 判为「缺」而不是「完整」）
+    mkdirSync(diaryExcerptDir(), { recursive: true })
+    writeFileSync(join(diaryExcerptDir(), '2026-11-02.md'), '# 2026-11-02\n\n- 一件事实\n', 'utf8')
     // 更早的一篇：最近一天必须取最大的
-    writeFileSync(join(diaryPrivateDir(), '2026-10-31.md'), '更早', 'utf8')
+    writeFileSync(join(diaryExcerptDir(), '2026-10-31.md'), '# 2026-10-31\n\n- 更早\n', 'utf8')
     // 把 mtime 拨回 11-02 中午：那一天窗口还没闭合 → 完整性判定必须是「缺」
     // （不拨的话文件是刚刚建的，mtime 在窗口之后，会被判成「完整」）
     const backdated = new Date(2026, 10, 2, 12, 0, 0).getTime() / 1000
-    utimesSync(join(diaryPublicDir(), '2026-11-02.md'), backdated, backdated)
-    utimesSync(join(diaryPrivateDir(), '2026-11-02.md'), backdated, backdated)
+    utimesSync(join(diaryExcerptDir(), '2026-11-02.md'), backdated, backdated)
 
     const result = writeDailyHealth({
       cwd: 'D:\\work',
-      config: { diarySessionId: 'session-123' },
+      config: { excerptSessionId: 'session-123' },
       cards: fakeCards(),
       now: DAY4
     })
@@ -147,13 +144,13 @@ describe('每日健康一行', () => {
     assert.match(line, /记忆 项目=1 全局=4（pinned 1 \/ 保护 1 \/ 模糊 2 \/ 遗忘 2）/)
     assert.match(line, /归档 3 条/)
     assert.match(line, /笔记 2 篇/)
-    assert.match(line, /日记 最近=2026-11-02 公开\/私密=缺/)
+    assert.match(line, /摘录 最近=2026-11-02 缺/)
   })
 
-  test('未绑定日记会话时写「未绑」，且不影响整行', () => {
+  test('未绑定摘录会话时写「未绑」，且不影响整行', () => {
     setupHome()
-    writeDailyHealth({ cwd: '', config: { diarySessionId: '' }, cards: fakeCards(), now: DAY4 })
-    assert.match(healthLines()[0], /日记 最近=- 公开\/私密=未绑/)
+    writeDailyHealth({ cwd: '', config: { excerptSessionId: '' }, cards: fakeCards(), now: DAY4 })
+    assert.match(healthLines()[0], /摘录 最近=- 未绑/)
   })
 
   test('renderHealthLine 本身不碰盘，也不会抛', () => {

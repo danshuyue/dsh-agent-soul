@@ -42,7 +42,6 @@ function eq(actual, expected, name) {
 
 const paths = await import('../lib/paths.js')
 const store = await import('../lib/store.js')
-const threads = await import('../lib/threads.js')
 const notes = await import('../lib/notes.js')
 const guard = await import('../lib/core/prompt-guard.js')
 const token = await import('../lib/core/api-token.js')
@@ -195,12 +194,10 @@ console.log('\n③ 原子写与全调用点')
   try { store.saveConfig({ mode: 'stack' }) } catch (error) { threw = error }
   ok(threw !== null && String(threw.message).includes('配置写盘失败'), 'saveConfig 写盘失败会抛给 API（不再回 200）')
   store.savePurposeState({ goals: [] })
-  threads.saveThreads({ threads: [] })
   notes.saveIndex({ version: 1, notes: [] })
   paths.__setAtomicWriteFailureForTest(null)
   const log = existsSync(LOG_FILE()) ? readFileSync(LOG_FILE(), 'utf8') : ''
   ok(log.includes('目的状态写盘失败'), '目的状态写失败留 WARN')
-  ok(log.includes('连续线写盘失败'), '连续线写失败留 WARN')
   ok(log.includes('笔记索引写盘失败'), '笔记索引写失败留 WARN')
 
   // 2026-11-06 重构：实现可能已迁到 lib/ 子目录，扫描全部模块而不是绑死某个路径

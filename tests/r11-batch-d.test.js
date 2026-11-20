@@ -1,4 +1,4 @@
-/**
+﻿/**
  * R11 · D 批数据与体验（P2-20 / P2-21 / P2-22 / P2-24 / P2-32 / P2-23）
  *
  * 这一批都是「边界上的一两天、一两次」的小错，单个看都不致命，
@@ -70,7 +70,7 @@ console.log('P2-21 · 记忆健康要能看见项目卡')
 }
 
 // ---------------------------------------------------------------------------
-console.log('P2-32 · 日记正文有字数上限')
+console.log('P2-32 · 摘录正文有字数上限')
 // ---------------------------------------------------------------------------
 {
   const diaryTool = await imp('diary-tool.js')
@@ -85,7 +85,7 @@ console.log('P2-32 · 日记正文有字数上限')
   const huge = '很'.repeat(25_000)
   const run = spec?.execute ?? spec?.handler ?? spec?.run
   ok(typeof run === 'function', '工具定义里有可调用的执行函数')
-  const res = await run({ action: 'write', kind: 'public', content: huge }, {})
+  const res = await run({ action: 'write', kind: 'excerpt', content: huge }, {})
   eq(res.ok, false, '超长日记被拒绝（旧实现照写，之后每轮挤占注入预算）')
   ok(String(res.message ?? '').includes('太长'), '给出了明确原因')
   ok(String(res.message ?? '').includes('20000'), '说明了上限是多少')

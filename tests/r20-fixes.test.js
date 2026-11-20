@@ -141,18 +141,18 @@ console.log('M4 · normalizeConfig({}) 与 DEFAULT_CONFIG 无假默认值')
     }
   }
   eq(mismatches, [], 'DEFAULTS 与 DEFAULT_CONFIG 的同名键值完全一致')
-  eq(cfg.diaryToTodayMaxChars, 30, 'diaryToTodayMaxChars 的假默认值 10 已修正为 30')
+  // 0.10.0：假默认值那条（diaryToTodayMaxChars）随功能一起删了；
+  // 现在同一类问题盯在新键 excerptMaxLines 上：DEFAULTS 与 DEFAULT_CONFIG 都必须是 15。
+  eq(cfg.excerptMaxLines, 15, 'excerptMaxLines 的默认值在两边都是 15（不再出现「clamp 下界冒充默认」）')
+  eq(cache.DEFAULT_CONFIG.excerptMaxLines, 15, 'DEFAULT_CONFIG.excerptMaxLines 也是 15')
 }
 
 // ---------------------------------------------------------------------------
-console.log('批次 B 回归 · H6 / H7 / H4 / M5 / M20')
+console.log('批次 B 回归 · H7 / H4 / M5 / M20')
 // ---------------------------------------------------------------------------
 {
-  // H6：LIFE_WORDS 补 g —— 多生活词句子的加分 > 6（原来恒 6）
-  const { scoreEntry } = await imp('core/diary-pick.js')
-  const life = scoreEntry({ role: 'user', text: '今天好累，晚上吃了宵夜，看完电影就睡了，梦里还在想你', len: 30, time: Date.now() })
-  const lifeReason = life.reasons.find((r) => String(r).startsWith('生活词×'))
-  ok(lifeReason !== undefined && Number(String(lifeReason).slice(4)) > 1, `H6 多生活词命中 > 1 次（实际 ${lifeReason}）`)
+  // H6（素材打分）测的是 core 里那套打分模块 —— 0.10.0 摘录直接读流水，它已删，
+  // 这条回归没有对象了。留个空段会变成恒真断言，所以整段去掉。
 }
 {
   // H7：纯英文单词查询能召回（原来 minHits=2 全滤掉）

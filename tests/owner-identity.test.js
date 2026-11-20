@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 主人身份可配置化（2026-11-04）：node tests/owner-identity.test.js
  *
  * ── 为什么需要这个文件 ──
@@ -19,7 +19,7 @@
  */
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 const HOME = mkdtempSync(join(tmpdir(), 'soul-owner-'))
 process.env.DSH_HOME = HOME
@@ -28,7 +28,8 @@ const mood = await import('../lib/mood.js')
 const memory = await import('../lib/memory.js')
 const store = await import('../lib/store.js')
 const refine = await import('../lib/refine.js')
-const { pickConversation } = await import('../lib/core/diary-pick.js')
+const { excerptFromConversations, todayKey } = await import('../lib/diary.js')
+const { diaryJsonlPath } = await import('../lib/paths.js')
 
 let passed = 0
 let failed = 0
@@ -178,15 +179,18 @@ console.log('提炼与日记流水里的人称：')
   ok(bare.includes('对方'), '没设名字时用中性的「对方」')
   ok(refine.buildRefineSystem({ owner: '阿明' }).includes('阿明'), '设了名字就用名字')
 
-  const rows = [
-    { t: Date.now() - 1000, role: 'user', text: '在吗' },
-    { t: Date.now(), role: 'assistant', text: '在的' }
-  ]
-  const barePick = pickConversation(rows, { maxChars: 1000 })
-  ok(barePick.text.includes('对方：在吗'), '日记流水没设名字时标「对方」')
-  ok(!barePick.text.includes('树树'), '日记流水不再写死「树树」')
-  const namedPick = pickConversation(rows, { maxChars: 1000, ownerName: '树树' })
-  ok(namedPick.text.includes('树树：在吗'), '设了名字时流水按名字标')
+  // 摘录的兜底就是「从流水里取谁说了什么」—— 名字口径必须跟提示词一致
+  const day = todayKey(Date.now())
+  mkdirSync(dirname(diaryJsonlPath(day)), { recursive: true })
+  writeFileSync(diaryJsonlPath(day), [
+    JSON.stringify({ t: Date.now() - 1000, role: 'user', text: '在吗？' }),
+    JSON.stringify({ t: Date.now(), role: 'assistant', text: '在的' })
+  ].join('\n') + '\n', 'utf8')
+  const bareLines = excerptFromConversations(day, { maxRows: 2 })
+  ok(bareLines[0] === '对方：在吗', '摘录兜底没设名字时标「对方」')
+  ok(!bareLines.join('').includes('树树'), '摘录兜底不再写死「树树」')
+  const namedLines = excerptFromConversations(day, { maxRows: 2, ownerName: '树树' })
+  ok(namedLines[0] === '树树：在吗', '设了名字时摘录按名字标')
 }
 
 rmSync(HOME, { recursive: true, force: true })

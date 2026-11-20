@@ -178,7 +178,7 @@ console.log('\n消费器 · 超时与「真取消」的边界：')
 }
 
 // ---------------------------------------------------------------------------
-console.log('\n四个业务调用点 · 超时必须降级为 null：')
+console.log('\n各业务调用点 · 超时必须降级为 null：')
 {
   const hang = { async *stream() { await new Promise(() => {}); yield { type: 'text-delta', text: 'x' } } }
   const r = await refine.refineCandidates(hang, fakeAgent, [{ text: '我不吃辣' }], { timeoutMs: short })
@@ -191,23 +191,10 @@ console.log('\n四个业务调用点 · 超时必须降级为 null：')
   eq(r, null, 'judgeMood：超时丢弃这一轮（沿用旧心情值）')
   ok(noted.some((m) => m.includes('超时')), 'judgeMood：超时有日志，不留「心情停住」的无头案')
 }
+// 2026-11-21 / 0.10.0：摘录主流程不再自己调 llm（写的人是绑定会话，兜底是规则化提取），
+// 所以原来这两条「日记 LLM 链路超时」的探针没有对象了 —— 直接删掉，不留下恒真的空壳。
 {
-  const hang = { async *stream() { await new Promise(() => {}); yield { type: 'text-delta', text: 'x' } } }
-  const config = { diarySummarizeTimeoutMs: short }
-  const a = await diary.summarizeConversations(hang, '今天聊了天', config, fakeAgent)
-  const b = await diary.composeDiaryText(hang, config, fakeAgent, 'public', {
-    dateStr: '2026-11-05', summary: '今天聊了天', recentDiaries: { public: '' }
-  })
-  eq([a, b], [null, null], 'summarizeConversations / composeDiaryText：超时都返回 null')
-  if (existsSync(LOG_FILE())) {
-    const log = readFileSync(LOG_FILE(), 'utf8')
-    ok(log.includes('超时'), '日记两条链路把超时原因写进了日志')
-  } else {
-    ok(false, '日记两条链路把超时原因写进了日志（日志文件不存在）')
-  }
-}
-{
-  // 正常流不能因为重构而回归：四个函数各跑一次 happy path。
+  // 正常流不能因为重构而回归：happy path 至少跑一次。
   const good = {
     async *stream() {
       yield { type: 'text-delta', text: '[{"text":"我不吃辣","importance":60}]' }
@@ -216,12 +203,6 @@ console.log('\n四个业务调用点 · 超时必须降级为 null：')
   }
   const r = await refine.refineCandidates(good, fakeAgent, [{ text: '我不吃辣' }], { timeoutMs: 1000 })
   ok(Array.isArray(r) && r.length === 1, 'refineCandidates：正常流仍能解析出记忆条目')
-
-  const goodDiary = { async *stream() { yield { type: 'text-delta', text: '今天过得平静。' } } }
-  const text = await diary.composeDiaryText(goodDiary, { diarySummarizeTimeoutMs: 1000 }, fakeAgent, 'public', {
-    dateStr: '2026-11-05', summary: '今天聊了天', recentDiaries: { public: '' }
-  })
-  eq(text, '今天过得平静。', 'composeDiaryText：正常流正文逐字不变')
 }
 
 // ---------------------------------------------------------------------------

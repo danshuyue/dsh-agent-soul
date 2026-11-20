@@ -1,4 +1,4 @@
-/**
+﻿/**
  * R6 回归：`/config` 的值必须有类型与范围校验（2026-11-06）。
  *
  * 修之前只过滤键名，值原样写进去；一个对象 / NaN / 负数能让归一化吞掉键，
@@ -40,7 +40,7 @@ console.log('数字：')
   ok(validateConfigEntry('moodBase', '70').ok === false, '拒绝字符串数字（类型要严格）')
   // 这条是 round1 那个严重缺陷的防盗门
   const now = Date.now()
-  const born = validateConfigEntry('diarySessionBornAt', now)
+  const born = validateConfigEntry('excerptSessionBornAt', now)
   ok(born.ok === true && born.value === now, `接受毫秒时间戳 ${now}（不能有 1e9 之类上限）`)
 }
 

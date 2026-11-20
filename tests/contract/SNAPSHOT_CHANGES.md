@@ -90,3 +90,7 @@
 - 2026-11-11T15:11:11.897Z · behavior-golden.json · 0.9.17 日记与心情提示词有意变更的连带刷新：提示词人话化、私密历史不再回灌、历史日记压成每篇一行并与当天素材划开、心情摘要按日期窗口取。行为变化是有意的，基线随之更新（不是静默刷）。
 
 - 2026-11-12T05:42:02.709Z · exports.snapshot.json · R21 审计整改：segment-cache 新增 SEGMENT_CACHE_MAX_AGE_MS（30 分钟保险丝，修「快照恒抛时缓存永久冻结」）；删除死代码 shouldInjectPersona 与 personaInjectAtBySession（0.9.17 起人格段改为缓存优先后已无调用方）。
+
+- 2026-11-20T16:57:55.820Z · exports.snapshot.json · 0.10.0 摘录替代日记：删掉 diary/to-today.js、threads.js、core/diary-pick.js、diary/llm.js 四个模块；diary.js 门面去掉 buildMoodBlocks/composeDiaryText/composePrivateMessage/composePublicMessage/diaryWindowOf/digestDiaries/readRecentDiaries/summarizeConversations/writeDiaryFile，换成 composeExcerptMessage/extract 系列/writeExcerptFile/readRecentExcerpts 等摘录 API；paths 去掉 diaryPublic*/diaryPrivate*/diaryToTodayPath、新增 diaryExcerpt*/diaryLegacyPath；api/middleware 去掉 privateDiaryView；routes 去掉 handleGetDiaryPrivate/handlePostDiaryToToday。均为功能删除与改名，无行为回退。
+
+- 2026-11-20T16:58:05.241Z · behavior-golden.json · 0.10.0 摘录替代日记：行为 golden 里原来的 composePublic/composePrivate 两条触发消息换成一条 composeExcerpt（含情境背景与前几天摘录参考），覆盖项从 12 项变为 11 项。语义变更，非重构。

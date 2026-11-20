@@ -1,9 +1,8 @@
 {
-  "hash": "e6eaaf5fcc285d3ed10d94c72f213a2ad826c55760341b8156fb2a4ba40fe8a1",
-  "length": 3040,
+  "hash": "4902cc96f382be825cd61b86f19033200d919581f35b7f792edcc047ebde5052",
+  "length": 2319,
   "cases": [
-    "composePrivate",
-    "composePublic",
+    "composeExcerpt",
     "decay",
     "moodDigestEmpty",
     "recall",

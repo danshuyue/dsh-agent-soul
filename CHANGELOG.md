@@ -82,10 +82,6 @@
   `legacy` / `hasLegacyPublic` / `hasLegacyPrivate`）；`/diary/read` 的 `publicContent`
   变成 `excerptContent` + `excerptLines`，旧日记放 `legacy.publicContent`。
 
-> 遗留：`README.md` 里「日记」那一整章还是 0.9.x 的两篇口径（public/private、连续线、
-> 给明天一句话、情绪底色、旧配置表），本轮没跟着重写 —— 代码与 CHANGELOG 是准的，
-> 文档单独一轮补。
-
 ---
 
 ## 0.9.18 · 2026-11-12

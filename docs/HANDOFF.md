@@ -1,7 +1,8 @@
-# 交接文档 · dsh-agent-soul `0.9.17`
+# 交接文档 · dsh-agent-soul `0.10.0`
 
 > 给接手的人（或 AI）。读完这一份就能开工，不需要翻聊天记录。
-> 写作时间：2026-11-08（0.9.17 于 2026-11-12 更新）· tag `v0.9.17` · npm `latest = 0.9.17`
+> 写作时间：2026-11-08（0.10.0 于 2026-11-21 更新）· 版本 `0.10.0` · tag `v0.10.0`（发布时打）·
+> npm `latest = 0.10.0`（发布后生效；本轮核过：仓库里还没有 `v0.10.0` tag，npm 上仍是 `0.9.18`）
 
 ---
 
@@ -27,15 +28,15 @@
 
 ## 0. 一句话现状
 
-这是一个 DSH/Cordis 插件，给「糖糖」这个 AI 伴侣做**人格 + 记忆 + 心情 + 目的 + 笔记 + 日记**。
-`0.9.1`–`0.9.17` 之间跑了九轮定向加固（R13–R20）。**别再说「清零」** ——
+这是一个 DSH/Cordis 插件，给「糖糖」这个 AI 伴侣做**人格 + 记忆 + 心情 + 目的 + 笔记 + 摘录**。
+`0.9.1`–`0.9.17` 之间跑了九轮定向加固（R13–R20），`0.10.0` 把日记改成摘录。**别再说「清零」** ——
 0.9.13 写过一次「代码层面待修项已清零」，六天后的外部审查又找出 43 条，
 其中 8 条是在「清零」之后写进去的。统一口径：**「本轮清单已清空，新发现见审查轮次」**。
 
 | 指标 | 数值 |
 |---|---|
-| 测试 | **94** 个测试文件 / 0 失败；契约 **11** / 0 |
-| 代码量 | `lib/` 105 个文件 / ~22.0k 行 |
+| 测试 | **92** 个测试文件 / 0 失败；契约 **11** / 0 |
+| 代码量 | `lib/` 103 个文件 / 20684 行（约 20.7k） |
 | 运行时依赖 | **零**（`dependencies` 为空，刻意如此） |
 | 支持 | Node ≥ 22.19；CI 跑 Node 22 + 24 + Windows |
 | 发布物 | `lib assets docs tools cordis.patch.yml README CHANGELOG LICENSE THIRD-PARTY-NOTICES LICENSES` |
@@ -46,8 +47,8 @@
 
 ```
 仓库：https://github.com/danshuyue/dsh-agent-soul
-分支：main（HEAD = b57d856）
-版本：0.9.8（package.json / npm / tag v0.9.8 三者一致）
+分支：main（HEAD = 0a5bc0b）
+版本：0.10.0（package.json；tag / npm 由发布方统一处理）
 安装副本：C:\Users\Administrator\.dsh\plugins\dsh-agent-soul   ← 与 main 同步
 运行日志：C:\Users\Administrator\.dsh\agents\soul.log
 ```
@@ -55,9 +56,9 @@
 **开工第一步：确认你拿到的是不是这个版本。**
 
 ```bash
-git log --oneline -1        # 应为 b57d856 或其后代
-node -e "console.log(require('./package.json').version)"   # 应为 0.9.8
-git tag --list | tail -3    # 应含 v0.9.8
+git log --oneline -1        # 应为 0a5bc0b 或其后代
+node -e "console.log(require('./package.json').version)"   # 应为 0.10.0
+git tag --list | tail -3    # 发版后应含 v0.10.0
 ```
 
 ---
@@ -66,7 +67,7 @@ git tag --list | tail -3    # 应含 v0.9.8
 
 ```bash
 export DSH_HOME=/tmp/soul-dev TZ=UTC   # Windows: $env:DSH_HOME="..."; $env:TZ="UTC"
-npm test          # 84 个文件，约 30–60 秒；期望「汇总：收集 84 / 执行 84 / 失败 0」
+npm test          # 92 个文件，约 30–60 秒；期望「汇总：收集 92 / 执行 92 / 失败 0」
 npm run lint      # 期望「lint: 没有发现问题」
 npm run test:contracts   # 11 个，期望 0 失败
 ```
@@ -85,7 +86,7 @@ lib/paths.js             所有落盘路径 + atomicWrite（所有写盘都走�
 lib/store.js             门面：把各 state 模块的导出汇总（契约快照盯的就是它）
 lib/host/runtime/        宿主装配：turns（轮次/游标）inject（注入段）tick（每回合维护）
 lib/memory/              记忆卡：card-io（读写/损坏迁移）card（合并/ref/搜索）
-lib/diary/               日记：scheduler（定时/看门狗）compose（拼素材）feed（流水/选段）
+lib/diary/               摘录：scheduler（触发/看门狗）compose（拼触发消息）excerpt（清洗/排序/落盘）fallback（规则化兜底）
 lib/http/                设置页 API：server（路由分发/鉴权）routes/* middleware
 lib/client/*.js          设置页前端片段 → 由 tools/build-client.mjs 拼成 lib/client.js
 ```
@@ -188,7 +189,7 @@ git switch -c fix/your-topic main   # 从干净 main 拉
 版本号 / 发版 / tag / 安装副本同步都由复核方统一做（见 §8）。
 
 理由不只是「分工」：这五处必须同时改对，两边各改一半就会出现
-「npm 上是 0.9.9、tag 是 v0.9.8、package.json 是 0.10.0」这种再也对不上的状态。
+「npm 上是 0.10.0、tag 是 v0.9.18、package.json 是 0.11.0」这种再也对不上的状态。
 
 ---
 
@@ -227,22 +228,16 @@ git switch -c fix/your-topic main   # 从干净 main 拉
 
 ---
 
-## 6. 下一轮该做什么（0.9.17 后）
+## 6. 下一轮该做什么（0.10.0 后）
 
-R20（外部审查 43 条）**已合并并发布**。真实基线：**修了 34 条，没修 8 条，更正 3 条误报**。
+### ① 0.10.1：心里话（还没做）
 
-### ① 第一件事：审 `segment-cache.js`（166 行）
+这是下一个版本的事，**现在代码里没有**，文档里也不许写成已有：
 
-0.9.17 之前新增的**第四段注入缓存层**，当初没进审查范围。**两轮都没人审过它。**
-三个已知风险面：
-
-1. 缓存陈旧（签名覆盖不到的状态改了，缓存还在）；
-2. 缓存与开关证据不一致（`evidence.js` 说生效、缓存其实是旧的）；
-3. 缓存无上限（有没有 `trimMap`）。
-
-审查者只做了「快审」，判断初步健康，但留了一个观察点：
-`notesSignature` 对 `notesDir()` 是**目录级**指纹，目录内单文件改写是否触发重算，取决于
-`fileSignature` 对目录的实现 —— **这条没人核过。**
+- 产出：**按月一个文件**，不是一天一篇；
+- 谁写：她自己写（跟摘录一样走「投消息让她自己落盘」那条路）；
+- 设置页：能绑定「心里话写进哪个会话」，也能手动重写；
+- 跟摘录的边界：摘录只写事实（一行一条、不写时间、不写感受）；心里话写的是她自己的感受，**不要照抄摘录那套清洗规则**。格式、路径、prompt、清洗规则在 0.10.1 设计时另定。
 
 ### ② 未修的 8 条（各有理由，别当漏）
 
@@ -252,24 +247,16 @@ R20（外部审查 43 条）**已合并并发布**。真实基线：**修了 34 
 | M8 | 密钥三处不一致：env 折叠要可逆编码，还要老环境变量兼容 |
 | M11 | 单调时钟：`Date.now` 与 `performance.timeOrigin` 对齐要实测；跨端口放宽是设计决策 |
 | M18 | 入库门槛读 cfg：`threshold` 与 `autoImportanceDefault` 语义不同，要产品口径 |
-| M19 | LLM 结构校验：先定义「合法日记/记忆」的最小 schema |
+| M19 | LLM 结构校验：先定义「合法摘录/记忆」的最小 schema |
 | M21 | 两套重要性评分收敛：先做等价性验证 |
 | M22 | 归档召回性能：要真实大数据样本 |
 | M23 | `sync.mjs` 工具链：`--to` 缺值 / 回滚 / 根目录临时文件 |
 
 ### ③ 两条「未验证」的补法
 
-- **S1 的 TTL**：把 TTL 调小 + 注入一条永不 settle 的假链，断言 18 分钟内会强制重入。
+- **孤儿链 TTL 毒化**：把 TTL 调小 + 注入一条永不 settle 的假链，断言 18 分钟内会强制重入并留 ⚠️ 日志。现在只有代码路径和读代码结论，没有测试证明它真的会放行。
 - **M5 的跨时区**：Linux CI 加 `TZ=America/New_York` 跑 retention
   （**Windows 的 Node 忽略 `TZ`**，本机永远造不出来，别在这上面浪费轮次）。
-
-### ④ 功能面暂时不做
-
-- **② 联想召回（assoc）暂缓**：全局记忆 92 条，三道闸下边密度建不起来，收益接近零。
-  等记忆到 300~500 条、且确实「该想起来的没想起来」时再做。`docs/待做的三件事.md` 里已标注。
-- **`#23`**（渲染期白屏）：等宿主暴露 `React.Component`。在那之前别动 ——
-  `try/catch` 包不住渲染期异常，改了只会得到假的错误边界。
-- **两条「待确认」**（见第六节）：需要真实环境（压缩会话的 `snapshotEvents`、反代 `Origin` 形态）。
 
 > 三条重构纪律（R15 / R16 / R17 三轮验证有效，照抄）：
 > **先补特征测试钉住当下行为 → 再拆 → 特征测试一条不改必须全绿 → 毒化一次证明测试网有效。**
@@ -378,7 +365,7 @@ C:\Users\Administrator\.dsh\agents\soul.log     ← 第一手线索，永远先�
 ```
 
 日志是**本地时间**、带 `+08:00` 偏移。关键 tag：
-`[apply]` 启动/装配 · `[api]` 接口 · `[memory]` 记忆 · `[diary]` 日记 · `[mood]` 心情 ·
+`[apply]` 启动/装配 · `[api]` 接口 · `[memory]` 记忆 · `[diary]` 摘录 · `[mood]` 心情 ·
 `[tick]` 每回合维护 · `[extract]` 提取 · `[attest]` 装配证词。
 
 **几条「看着像 bug 其实不是」的日志**：
@@ -387,7 +374,7 @@ C:\Users\Administrator\.dsh\agents\soul.log     ← 第一手线索，永远先�
 |---|---|
 | `[mood] 心情判定用的是自定义 provider「xxx」（不是 siliconflow）…` | 一次性告警，提醒「宿主不认识这个 provider 会让心情静默停摆」。看到它就往下翻一行确认判定是否成功 |
 | `[memory]「想起来了」被去重挡空，已把去重表收到 N 条重试` | 设计好的退化：全被挡掉时缩小去重表重试，不会注入空段 |
-| `[diary] 2026-11-xx 两篇都已写完，跳过` | 看门狗每 60 分钟检查一次，正常 |
+| `[diary] 2026-11-xx 的摘录已写完，跳过` | 看门狗每 30 分钟检查一次，正常 |
 | `[api] 设置页接口已注册` 后紧跟 `[diary] 看门狗已启动` | 正常启动序列，共约 11 行 |
 
 ---

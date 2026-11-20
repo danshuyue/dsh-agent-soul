@@ -7,6 +7,87 @@
 
 ---
 
+## 0.10.0 · 2026-11-21
+
+**日记 → 摘录。** 这一天不再写「一篇公开 + 一篇私密」，只写一篇**事实条目**：
+`agents/diary/excerpt/YYYY-MM-DD.md`，一行一条，不写时间、不写感受。
+
+语义变了，所以是 0.10.0 而不是 0.9.x。
+
+### 变更 · 产出从两篇变一篇
+
+```
+# 2026-11-20
+
+- 灵魂插件：日记改成「摘录」，去掉公开/私密两篇
+- 复变：确认下周四考试，定了每天两小时
+```
+
+- 目录：`agents/diary/excerpt/`（新）。**不再写** `public/` 与 `private/`。
+- 格式是硬规则，由插件统一收口（`lib/diary/excerpt.js`）：一行一条、`- ` 开头、
+  去掉时间戳与标题、丢弃带「觉得 / 看得出 / 其实 / 似乎 / 也许」的句子、
+  最多 `excerptMaxLines`（默认 15）条。
+- 超上限时优先保留「约定 / 决定 / 时间 / 待办」（最多 3 条，放在最前面）。
+- 当天没有对话 → 一行 `（今天没有对话）`。
+- 触发链路**没动**：启动补写 + 看门狗（`startDiaryTimer` / `runStartupFlow` /
+  `runDiaryOnce` / `withDeadline` / 孤儿链 TTL 全部保持原样），只是从两条消息收成一条。
+- 兜底从「插件再调一次模型生成一篇」改成**规则化提取**：
+  从 `conversations/YYYY-MM-DD.jsonl` 每行取 `role + 首句`，最多 20 条，**不调模型**。
+
+### 删除 · 四类功能
+
+| 删 | 连带删掉的东西 |
+|---|---|
+| **给明天一句话** | `lib/diary/to-today.js`、`markToToday`、首轮注入那段、`POST /diary/to-today`、设置页卡片、证据条目、`diaryToTodayEnabled` / `diaryToTodayMaxChars`（配置三处） |
+| **连续线** | `lib/threads.js`、日记里的开线/关线、`threadSection` 参数与文案 |
+| **素材打分** | `lib/core/diary-pick.js`、按分数挑对话（摘录直接读流水，只做长度截断） |
+| **公开/私密区分** | `private/` 写入路径、`diaryPrivateTone`、`diaryPrivateVisible`、`GET /diary/private`、私密语气输入、私密可见开关、私密历史回喂（`continueFromPublic`） |
+
+顺带删掉的死路径：`lib/diary/llm.js`（`composeDiaryText` / `summarizeConversations`）——
+摘录主流程不再自己调模型，这条兜底没有对象了。
+
+### 新增 · 配置
+
+- `excerptSessionId`：绑定的摘录会话（原 `diarySessionId`）。
+- `excerptMaxLines`：一天最多几条，默认 15，范围 5~60
+  （`NUMBER_RANGES` 与 `normalizeConfig` 两处一致）。
+
+### 迁移 · 老用户的绑定不会丢
+
+`diarySessionId` → `excerptSessionId` **自动迁移**：`loadConfig` 发现配置里没有新键、
+却有旧键时，把值（连同 `diarySessionBornAt` → `excerptSessionBornAt`）搬过去并写回
+`persona.json`，日志留一行。老用户升级后摘录照常写进原来那个会话，不需要重新绑定。
+
+### 旧数据 · 一个字节都不删
+
+`agents/diary/public/`、`private/`、`threads.json`、`to-today.json` **原样保留、不改写、不迁移**。
+设置页「摘录」页签里旧内容仍可显示，但标成**「旧日记」只读**；
+旧私密篇的正文跟以前一样不出服务器（`GET /diary/read` 只回旧公开篇，旧私密只报存在性）。
+0.10.0 起「那天写过没有」只看 `excerpt/`——旧日记不会让一个缺失日被误判成「已写」。
+
+### 注入
+
+「最近」段从「前几天的日记（每篇一段摘要）」改成「前几天的摘录」：
+最近 3 天、每篇最多 3 条。摘录全文不再进上下文。
+
+### 破坏性
+
+- 配置键删除：`diaryPrivateVisible`、`diaryPrivateTone`、`diaryToTodayEnabled`、
+  `diaryToTodayMaxChars`、`diaryPublicMoodMoments`、`diaryPrivateMoodMoments`、
+  `memoryRecentDiaryIncludePrivate`。旧配置文件里留着它们不会报错（不认识的键被忽略），
+  但已经不起作用。
+- 路由删除：`GET /diary/private`、`POST /diary/to-today`。
+- `soul_diary` 工具：`kind` 从 `public | private` 收成 `excerpt`；`action=look` 仍能翻最近 7 天。
+- `/diary/list` 的返回从 `hasPublic` / `hasPrivate` 变成 `hasExcerpt`（旧数据另带
+  `legacy` / `hasLegacyPublic` / `hasLegacyPrivate`）；`/diary/read` 的 `publicContent`
+  变成 `excerptContent` + `excerptLines`，旧日记放 `legacy.publicContent`。
+
+> 遗留：`README.md` 里「日记」那一整章还是 0.9.x 的两篇口径（public/private、连续线、
+> 给明天一句话、情绪底色、旧配置表），本轮没跟着重写 —— 代码与 CHANGELOG 是准的，
+> 文档单独一轮补。
+
+---
+
 ## 0.9.18 · 2026-11-12
 
 `segment-cache.js`（四段系统提示的渲染缓存）审计后的整改。审计报告在交接目录，

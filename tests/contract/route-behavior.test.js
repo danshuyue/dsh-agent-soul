@@ -1,4 +1,4 @@
-﻿/**
+/**
  * P14 · HTTP 路由行为契约（2026-11-06）
  *
  * 为「真拆 registerApi」建的前置安全网。现有门禁只钉外部导出 / 依赖图 / 记忆渲染，
@@ -107,6 +107,8 @@ const CASES = [
   ['POST', '/diary/bind', {}, 400, false],
   ['POST', '/diary/unbind', {}, 200, true],
   ['POST', '/diary', { date: 'not-a-date' }, 400, false],
+  ['GET', '/self/list', undefined, 200, true],
+  ['POST', '/self/save', { date: 'not-a-date' }, 400, false],
   ['GET', '/notes/list', undefined, 200, true],
   ['GET', '/notes/read', undefined, 404, false],
   ['POST', '/notes/save', {}, 400, false],
@@ -114,7 +116,7 @@ const CASES = [
   ['POST', '/notes/delete', {}, 400, false]
 ]
 
-console.log('① 27 个路由分支的状态码与 ok：')
+console.log('① 29 个路由分支的状态码与 ok：')
 for (const [method, path, body, status, okFlag] of CASES) {
   const r = await call(method, path, body)
   eq([r.status, r.ok], [status, okFlag], `${method} ${path} → ${status}`)
@@ -159,13 +161,15 @@ const EXPECTED_ROUTES = [
   'GET /mood', 'POST /mood/reset', 'POST /mood/decay', 'POST /goal', 'POST /register',
   'POST /pick', 'GET /diary/list', 'GET /diary/read',
   'GET /diary/sessions', 'POST /diary/bind', 'POST /diary/unbind', 'POST /diary',
+  // 2026-11-21 / 0.10.2：心里话列表 / 手动改删
+  'GET /self/list', 'POST /self/save',
   'GET /notes/list', 'GET /notes/read', 'POST /notes/save', 'POST /notes/rename',
   'POST /notes/delete',
   // 2026-11-07 R10 / P2-15：手动轮换会话令牌（要带当前令牌）
   'POST /session/rotate'
 ].sort()
 console.log('\n③ 路由分支清单（含不跑的 /pick）：')
-eq([...found].sort(), EXPECTED_ROUTES, `28 条分支齐全（实际 ${found.size} 条）`)
+eq([...found].sort(), EXPECTED_ROUTES, `30 条分支齐全（实际 ${found.size} 条）`)
 
 console.log(`\n结果：${passed} 过 / ${failed} 败`)
 process.exit(failed === 0 ? 0 : 1)

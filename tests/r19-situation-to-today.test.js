@@ -98,16 +98,17 @@ console.log('④ 情境只喂摘录 prompt 的「背景」，不进主干')
 }
 
 // ---------------------------------------------------------------------------
-console.log('④ 注入：前几天摘录（情境关掉不影响这一块）')
+console.log('④ 注入：摘录**不进**上下文（2026-11-21 / 0.10.1 定：它只是日志）')
 // ---------------------------------------------------------------------------
 {
   const yesterday = diary.todayKey(Date.now() - 24 * 60 * 60 * 1000)
   diary.writeExcerptFile(yesterday, '- 昨天把插件改完了')
 
+  // 就算摘录文件在、就算有人还传那个已删的键，也不能进上下文
   const section = inject.renderRecentSection({ memoryRecentDiaryDays: 3, memoryRecentChatChars: 0 })
-  ok(section.includes('前几天的摘录'), '有「前几天的摘录」这一节')
-  ok(section.includes('昨天把插件改完了'), '条目进了上下文')
-  ok(!section.includes('前几天的日记'), '不再叫「前几天的日记」')
+  ok(!section.includes('前几天的摘录'), '没有「前几天的摘录」这一节')
+  ok(!section.includes('昨天把插件改完了'), '摘录条目没进上下文')
+  ok(section === '', '没有流水时整段是空串（不是只有标题）')
 }
 
 // ---------------------------------------------------------------------------

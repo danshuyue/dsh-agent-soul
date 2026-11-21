@@ -66,17 +66,21 @@ describe('diaryIsCompleteFor', () => {
     assert.equal(diaryIsCompleteFor(DAY), false, '判不准时宁可当没写完 —— 漏写是丢内容，白写只是多花一次调用')
   })
 
-  test('没有摘录 → 不完整', () => {
+  test('没有摘录、也没有旧日记 → 不完整', () => {
     assert.equal(diaryIsCompleteFor(DAY), false)
   })
 
-  test('只有旧日记（public/ + private/）→ 不完整（0.10.0 起旧数据不算今天写过）', () => {
+  test('只有旧日记（public/ + private/）→ **完整**（2026-11-21 / 0.10.4 改）', () => {
+    // 0.10.0 一开始定的是「旧数据不算今天写过」，本意是升级后给昨天补一篇摘录。
+    // 实际后果：findMissingDay 从今天往回扫，历史每一天都「没写过摘录」，
+    // 于是每次重启都补一天，用户看到「重启又写了一篇之前的摘要」。
+    // 现在有旧日记就算写过，不再补。
     ensureDirs()
     mkdirSync(join(HOME, 'agents', 'diary', 'public'), { recursive: true })
     mkdirSync(join(HOME, 'agents', 'diary', 'private'), { recursive: true })
     writeFileSync(diaryLegacyPath('public', DAY), '【公开】\n2026-10-31\n\n正文\n', 'utf8')
     writeFileSync(diaryLegacyPath('private', DAY), '【私密】\n2026-10-31\n\n正文\n', 'utf8')
-    assert.equal(diaryIsCompleteFor(DAY), false)
+    assert.equal(diaryIsCompleteFor(DAY), true, '旧日记也算写过：不再把历史一天补成摘录')
   })
 
   test('非法日期 → 不完整（不抛错）', () => {

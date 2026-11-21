@@ -358,12 +358,14 @@ console.log('触发消息（composeExcerptMessage）')
 // ---------------------------------------------------------------------------
 
 {
-  const config = { diaryPublicTone: '平实、只写事实', excerptMaxLines: 15 }
+  const config = { excerptMaxLines: 15 }
   const msg = composeExcerptMessage(config, '2026-10-29', '今天聊了很多')
 
   ok(msg.includes('2026-10-29'), '消息包含日期')
   ok(msg.includes('今天聊了很多'), '消息包含素材')
-  ok(msg.includes('平实、只写事实'), '消息带摘录语气')
+  // 2026-11-21 / 0.10.2：现实情境与语气从摘录搬走，只喂心里话。
+  ok(!msg.includes('背景：'), '摘录不再带现实情境背景')
+  ok(!msg.includes('语气：'), '摘录不再带语气行')
   // 2026-11-04：不再给绝对路径了 —— 改成让她用 soul_diary 工具写。
   ok(msg.includes('soul_diary') && msg.includes('kind=excerpt'), '指明用 soul_diary 写（kind=excerpt）')
   ok(msg.includes('一行一条'), '写明格式：一行一条')

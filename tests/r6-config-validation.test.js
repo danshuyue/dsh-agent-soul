@@ -1,4 +1,4 @@
-﻿/**
+/**
  * R6 回归：`/config` 的值必须有类型与范围校验（2026-11-06）。
  *
  * 修之前只过滤键名，值原样写进去；一个对象 / NaN / 负数能让归一化吞掉键，
@@ -49,7 +49,7 @@ console.log('字符串：')
   ok(validateConfigEntry('ownerName', '树树').ok === true, '接受中文名字')
   ok(validateConfigEntry('ownerName', 'x'.repeat(5000)).ok === false, '拒绝超长字符串')
   ok(validateConfigEntry('ownerName', 'a\u0000b').ok === false, '拒绝 NUL')
-  ok(validateConfigEntry('diaryPublicTone', '一行\n两行').ok === true, '允许换行（语气文本可能多行）')
+  ok(validateConfigEntry('selfTone', '一行\n两行').ok === true, '允许换行（语气文本可能多行）')
   ok(validateConfigEntry('ownerName', 123).ok === false, '拒绝数字传给字符串键')
 }
 

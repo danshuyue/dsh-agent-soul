@@ -94,3 +94,7 @@
 - 2026-11-20T16:57:55.820Z · exports.snapshot.json · 0.10.0 摘录替代日记：删掉 diary/to-today.js、threads.js、core/diary-pick.js、diary/llm.js 四个模块；diary.js 门面去掉 buildMoodBlocks/composeDiaryText/composePrivateMessage/composePublicMessage/diaryWindowOf/digestDiaries/readRecentDiaries/summarizeConversations/writeDiaryFile，换成 composeExcerptMessage/extract 系列/writeExcerptFile/readRecentExcerpts 等摘录 API；paths 去掉 diaryPublic*/diaryPrivate*/diaryToTodayPath、新增 diaryExcerpt*/diaryLegacyPath；api/middleware 去掉 privateDiaryView；routes 去掉 handleGetDiaryPrivate/handlePostDiaryToToday。均为功能删除与改名，无行为回退。
 
 - 2026-11-20T16:58:05.241Z · behavior-golden.json · 0.10.0 摘录替代日记：行为 golden 里原来的 composePublic/composePrivate 两条触发消息换成一条 composeExcerpt（含情境背景与前几天摘录参考），覆盖项从 12 项变为 11 项。语义变更，非重构。
+
+- 2026-11-21T03:23:34.766Z · exports.snapshot.json · 0.10.2 心里话：新增 diary/self.js 与 routes/self.js 模块、diary.js 门面新增 self 系列 12 个导出、paths 新增 diarySelf*/diarySelfMonthPath；摘录触发消息去掉现实情境背景与语气行（搬到心里话），行为 golden 有意变更
+
+- 2026-11-21T03:23:34.910Z · behavior-golden.json · 0.10.2 心里话：新增 diary/self.js 与 routes/self.js 模块、diary.js 门面新增 self 系列 12 个导出、paths 新增 diarySelf*/diarySelfMonthPath；摘录触发消息去掉现实情境背景与语气行（搬到心里话），行为 golden 有意变更

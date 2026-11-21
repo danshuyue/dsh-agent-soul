@@ -83,18 +83,20 @@ eq(situation.seasonOf(1), '冬', '1 月冬')
 }
 
 // ---------------------------------------------------------------------------
-console.log('④ 情境只喂摘录 prompt 的「背景」，不进主干')
+console.log('④ 情境只喂心里话，不再进摘录（2026-11-21 / 0.10.2）')
 // ---------------------------------------------------------------------------
 {
-  const withFacts = diary.composeExcerptMessage({}, '2026-10-29', '今天聊了天气', {
+  const excerpt = diary.composeExcerptMessage({}, '2026-10-29', '今天聊了天气', {
     situation: ['今天是测试节', '已经 3 天没聊过了']
   })
-  ok(withFacts.includes('背景：今天是测试节；已经 3 天没聊过了。'), '两条事实拼成一句背景')
-  ok(withFacts.includes('只是背景'), '明说「这只是背景」')
+  ok(!excerpt.includes('背景：'), '摘录不再带「背景：」')
+  ok(!excerpt.includes('今天是测试节'), '情境事实没有进摘录')
+  ok(excerpt.includes('今天聊了天气'), '对话内容照常在')
 
-  const noFacts = diary.composeExcerptMessage({}, '2026-10-29', '今天聊了天气')
-  ok(!noFacts.includes('背景：'), '没给事实时不会凭空冒出来')
-  ok(noFacts.includes('今天聊了天气'), '对话内容照常在')
+  const self = diary.composeSelfMessage({ selfTone: '平实一点' }, '2026-10-29', 'C:\\tmp\\2026-10.md')
+  ok(self.includes('2026-10-29'), '心里话消息带日期')
+  ok(self.includes('C:\\tmp\\2026-10.md'), '心里话消息带绝对路径')
+  ok(self.includes('语气：平实一点'), '心里话消息带 selfTone')
 }
 
 // ---------------------------------------------------------------------------

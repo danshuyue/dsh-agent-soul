@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 摘录的落盘与格式（2026-10-31 建，2026-11-21 / 0.10.0 从「日记两篇」改成摘录）。
  *
  * 这个文件盯住三件最容易悄悄写坏的事：
@@ -211,6 +211,11 @@ describe('composeExcerptMessage', () => {
   test('不再提公开/私密两篇', () => {
     assert.doesNotMatch(message, /私密/)
     assert.doesNotMatch(message, /公开/)
+  })
+
+  test('现实情境不再进摘录（0.10.2 搬去心里话）', () => {
+    assert.doesNotMatch(message, /背景：/)
+    assert.doesNotMatch(message, /已经三天没聊了/)
   })
 
   test('素材包在数据边界里', () => {

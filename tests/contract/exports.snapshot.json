@@ -129,6 +129,7 @@
     "__resetDiaryInFlightForTest",
     "collectForDiary",
     "composeExcerptMessage",
+    "composeSelfMessage",
     "compressFeedText",
     "diaryAgent",
     "diaryDayBoundaries",
@@ -137,30 +138,43 @@
     "excerptLinesFromFile",
     "excerptLinesOf",
     "findMissingDay",
+    "hasSelfEntry",
     "isPriorityLine",
+    "listSelfEntries",
+    "maybeRunSelfAt",
     "normalizeExcerpt",
     "orderExcerptLines",
     "parseDateLocal",
+    "parseSelfSections",
     "readConversationRows",
     "readDiaryConversations",
     "readRecentChat",
     "readRecentExcerpts",
+    "readRecentSelfEntries",
+    "readSelfEntry",
     "regenerateDiary",
     "renderExcerptFile",
     "renderRecentExcerpts",
+    "renderSelfSection",
     "resetDiaryCursor",
     "runCatchUp",
     "runDiaryOnce",
+    "runSelfOnce",
     "scheduleMinutes",
+    "selfAgent",
+    "selfDue",
     "startDiaryTimer",
+    "startSelfTimer",
     "todayKey",
     "waitForWrite",
     "writeExcerptFile",
+    "writeSelfEntry",
     "yesterdayKey"
   ],
   "diary/agent.js": [
     "composeDiarySetup",
-    "diaryAgent"
+    "diaryAgent",
+    "selfAgent"
   ],
   "diary/completion.js": [
     "diaryDayBoundaries",
@@ -175,6 +189,8 @@
   ],
   "diary/deliver.js": [
     "askAgentToWrite",
+    "buildScheduleMessage",
+    "sendAgentMessage",
     "shouldAskAgain"
   ],
   "diary/excerpt.js": [
@@ -219,6 +235,24 @@
     "runCatchUp",
     "runDiaryOnce",
     "startDiaryTimer"
+  ],
+  "diary/self.js": [
+    "SELF_START_HOUR",
+    "SELF_WAIT_MS",
+    "clipSelfText",
+    "composeSelfMessage",
+    "hasSelfEntry",
+    "listSelfEntries",
+    "maybeRunSelfAt",
+    "parseSelfSections",
+    "readRecentSelfEntries",
+    "readSelfEntry",
+    "renderSelfSection",
+    "runSelfOnce",
+    "selfDue",
+    "selfMonthKeyOf",
+    "startSelfTimer",
+    "writeSelfEntry"
   ],
   "env.js": [
     "LOG_FILE",
@@ -394,6 +428,7 @@
     "handleGetNotesList",
     "handleGetNotesRead",
     "handleGetPersona",
+    "handleGetSelfList",
     "handleGetState",
     "handlePostConfig",
     "handlePostDiary",
@@ -410,7 +445,8 @@
     "handlePostOpen",
     "handlePostPersona",
     "handlePostRegister",
-    "handlePostSecret"
+    "handlePostSecret",
+    "handlePostSelfSave"
   ],
   "http/routes/memory.js": [
     "handleGetMemory",
@@ -432,6 +468,10 @@
   "http/routes/persona.js": [
     "handleGetPersona",
     "handlePostPersona"
+  ],
+  "http/routes/self.js": [
+    "handleGetSelfList",
+    "handlePostSelfSave"
   ],
   "http/routes/system.js": [
     "handleGetAttestation",
@@ -692,6 +732,7 @@
   ],
   "paths.js": [
     "DIARY_DATE_RE",
+    "DIARY_MONTH_RE",
     "HOME",
     "__setAtomicWriteFailureForTest",
     "agentsDir",
@@ -704,6 +745,9 @@
     "diaryExcerptPath",
     "diaryJsonlPath",
     "diaryLegacyPath",
+    "diarySelfDir",
+    "diarySelfMonthPath",
+    "diarySelfPath",
     "displayNameFor",
     "dshHome",
     "ensureDirs",

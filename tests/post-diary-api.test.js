@@ -1,4 +1,4 @@
-﻿/**
+/**
  * POST /diary API 全链路回归（2026-11-05；2026-11-21 / 0.10.0 改成摘录）：
  *   node tests/post-diary-api.test.js
  *
@@ -163,8 +163,8 @@ eq(failedWrite.payload.ok, false, '响应体 ok:false，调用方可以重试')
 eq(existsSync(paths.diaryExcerptPath(failDate)), false, '失败路径没有写出半截摘录')
 
 // ---------------------------------------------------------------------------
-console.log('\n⑤ GET /diary/list、/diary/read：摘录 + 旧日记只读')
-// 造一份 0.10.0 之前的旧日记（public/），验证列表里能显示但标成 legacy
+console.log('\n⑤ GET /diary/list、/diary/read：只有摘录，旧日记不再出现（2026-11-21 / 0.10.5）')
+// 造一份 0.10.0 之前的旧日记（public/ + private/）：文件在，但设置页不该再显示
 mkdirSync(join(HOME, 'agents', 'diary', 'public'), { recursive: true })
 mkdirSync(join(HOME, 'agents', 'diary', 'private'), { recursive: true })
 writeFileSync(paths.diaryLegacyPath('public', '2026-11-10'), '【公开】\n2026-11-10\n\n旧日记正文\n', 'utf8')
@@ -174,22 +174,28 @@ const list = await call('GET', '/diary/list?days=30')
 eq(list.status, 200, 'GET /diary/list → 200')
 const row = (list.payload.list ?? []).find((item) => item.date === date)
 ok(row !== undefined && row.hasExcerpt === true, '列表里那天的 hasExcerpt=true')
-const legacyRow = (list.payload.list ?? []).find((item) => item.date === '2026-11-10')
-ok(legacyRow !== undefined && legacyRow.legacy === true, '旧日记那天标了 legacy:true')
-ok(legacyRow !== undefined && legacyRow.hasLegacyPrivate === true, '旧私密篇只报存在性')
+ok(
+  (list.payload.list ?? []).every((item) => item.legacy === undefined),
+  '列表里没有任何 legacy 标记（旧日记不显示）'
+)
+ok(
+  (list.payload.list ?? []).every((item) => item.date !== '2026-11-10'),
+  '只有旧日记的那天不出现在列表里'
+)
 
 const read = await call('GET', `/diary/read?date=${date}`)
 eq(read.status, 200, 'GET /diary/read → 200')
 eq(read.payload.hasExcerpt, true, 'read 返回 hasExcerpt')
 ok(String(read.payload.excerptContent ?? '').includes('今天把日记改成摘录了'), 'read 返回摘录全文')
 ok(Array.isArray(read.payload.excerptLines) && read.payload.excerptLines.length > 0, 'read 同时给出条目数组')
-eq(read.payload.legacy, null, '那天没有旧日记 → legacy 为 null')
+ok(read.payload.legacy === undefined, 'read 不再返回 legacy 字段')
 
 const readLegacy = await call('GET', '/diary/read?date=2026-11-10')
-eq(readLegacy.status, 200, '旧日记那天也能读')
+eq(readLegacy.status, 200, '旧日记那天也能读（不报错）')
 eq(readLegacy.payload.hasExcerpt, false, '旧日记不算摘录')
-ok(String(readLegacy.payload.legacy?.publicContent ?? '').includes('旧日记正文'), '旧公开篇只读展示')
-ok(!JSON.stringify(readLegacy.payload).includes('旧私密正文'), '旧私密篇正文不出服务器')
+ok(readLegacy.payload.legacy === undefined, '不再回 legacy 字段')
+ok(!JSON.stringify(readLegacy.payload).includes('旧日记正文'), '旧公开篇正文不再出接口')
+ok(!JSON.stringify(readLegacy.payload).includes('旧私密正文'), '旧私密篇正文也不出接口')
 
 const badRead = await call('GET', '/diary/read?date=../AGENT')
 eq(badRead.status, 400, 'read 的 date 也过白名单')
